@@ -89,6 +89,168 @@ CONTENT_BLOCK_RE = re.compile(r"(<content\b[^>]*>.*?</content>)", re.DOTALL | re
 ESCAPED_TAGS = {"br", "span"}
 # ==========================================
 
+# ==========================================
+# [용어집] 고유 용어 선번역 목록
+# 형식: "원문": "번역어"
+# - 프롬프트에 포함되어 Gemini에게 우선 번역을 지시
+# - 번역 후 코드가 한 번 더 치환하여 확실하게 적용
+# ==========================================
+GLOSSARY = {
+    # 동료 캐릭터
+    "Karlach": "카를라크",
+    "Astarion": "아스타리온",
+    "Gale": "게일",
+    "Lae'zel": "레이젤",
+    "Shadowheart": "섀도하트",
+    "Wyll": "윌",
+    "Jaheira": "자헤이라",
+    "Minsc": "민스크",
+    "Halsin": "할신",
+    "Minthara": "민타라",
+    "Nightsong": "밤의 노래",
+    "Dark Urge": "어두운 충동",
+    "Haunted One": "시달리는 자",
+    "Viconia": "바이코니아",
+    "Ketheric Thorm": "케더릭 토름",
+    # 주요 NPC / 세력
+    "Raphael": "라파엘",
+    "Mizora": "미조라",
+    "Orin": "오린",
+    "Gortash": "고르타시",
+    "The Emperor": "황제",
+    "Mind Flayer": "마인드 플레이어",
+    "Illithid": "일리시드",
+    # 직업 - 바바리안
+    "Barbarian": "바바리안",
+    "Wildheart": "야생의심장",
+    "Berserker": "광전사",
+    "Wild Magic": "야생 마법",
+    "Giant": "거인",
+    # 직업 - 바드
+    "Bard": "바드",
+    "College of Lore": "전승학파",
+    "College of Valour": "용맹학파",
+    "College of Swords": "검술학파",
+    "College of Glamour": "요술학파",
+    # 직업 - 클레릭
+    "Cleric": "클레릭",
+    "Life Domain": "생명 권역",
+    "Light Domain": "빛 권역",
+    "Trickery Domain": "기만 권역",
+    "Knowledge Domain": "지식 권역",
+    "Nature Domain": "자연 권역",
+    "Tempest Domain": "폭풍 권역",
+    "War Domain": "전쟁 권역",
+    "Death Domain": "죽음 권역",
+    # 직업 - 드루이드
+    "Druid": "드루이드",
+    "Circle of the Land": "땅의 회합",
+    "Circle of the Moon": "달의 회합",
+    "Circle of the Spores": "포자의 회합",
+    "Circle of the Stars": "별의 회합",
+    # 직업 - 파이터
+    "Fighter": "파이터",
+    "Battle Master": "전투의 대가",
+    "Eldritch Knight": "비술 기사",
+    "Champion": "투사",
+    "Arcane Archer": "비전 궁수",
+    # 직업 - 몽크
+    "Monk": "몽크",
+    "Way of the Four Elements": "사원소의 길",
+    "Way of the Open Hand": "열린 손의 길",
+    "Way of Shadow": "그림자의 길",
+    "Way of the Drunken Master": "취권 달인의 길",
+    # 직업 - 팔라딘
+    "Paladin": "팔라딘",
+    "Oath of Devotion": "헌신의 맹세",
+    "Oath of the Ancients": "선조의 맹세",
+    "Oath of Vengeance": "복수의 맹세",
+    "Oath of the Crown": "왕관의 맹세",
+    # 직업 - 레인저
+    "Ranger": "레인저",
+    "Hunter": "사냥꾼",
+    "Beast Master": "야수 조련사",
+    "Gloom Stalker": "어둠 추척자",
+    "Swarmkeeper": "무리지기",
+    # 직업 - 로그
+    "Rogue": "로그",
+    "Thief": "도둑",
+    "Arcane Trickster": "비전 괴도",
+    "Assassin": "암살자",
+    "Swashbuckler": "칼잡이",
+    # 직업 - 소서러
+    "Sorcerer": "소서러",
+    "Draconic Bloodline": "용의 혈통",
+    "Storm Sorcery": "폭풍 술사",
+    "Shadow Magic": "그림자 마법",
+    # 직업 - 워락
+    "Warlock": "워락",
+    "The Fiend": "마족",
+    "The Great Old One": "고대의 지배자",
+    "The Archfey": "대요정",
+    "The Hexblade": "주술 칼날",
+    "Hexblade": "주술 칼날",
+    "Pact of the Chain": "사슬의 계약",
+    "Pact of the Blade": "검의 계약",
+    "Pact of the Tome": "장서의 계약",
+    # 직업 - 위저드
+    "Wizard": "위저드",
+    "Bladesinging": "칼날 노래",
+    "Bladesinger": "칼날 노래",
+    # 주문 학파 (긴 표현 먼저 - 부분 매칭 방지)
+    "School of Abjuration": "방호술",
+    "Abjuration School": "방호술",
+    "Abjuration": "방호술",
+    "School of Evocation": "방출술",
+    "Evocation School": "방출술",
+    "Evocation": "방출술",
+    "School of Necromancy": "사령술",
+    "Necromancy School": "사령술",
+    "Necromancy": "사령술",
+    "School of Conjuration": "창조술",
+    "Conjuration School": "창조술",
+    "Conjuration": "창조술",
+    "School of Enchantment": "환혹술",
+    "Enchantment School": "환혹술",
+    "Enchantment": "환혹술",
+    "School of Divination": "예지술",
+    "Divination School": "예지술",
+    "Divination": "예지술",
+    "School of Illusion": "환영술",
+    "Illusion School": "환영술",
+    "Illusion": "환영술",
+    "School of Transmutation": "변환술",
+    "Transmutation School": "변환술",
+    "Transmutation": "변환술",
+    # 주문명 (자주 등장하는 것들)
+    "Fireball": "화염구",
+    "Lightning Bolt": "번개 줄기",
+    "Haste": "가속",
+    "Slow": "둔화",
+    "Invisibility": "투명화",
+    "Misty Step": "안개 걸음",
+    "Thunderwave": "천둥파",
+    "Animate Dead": "망자 조종",
+    "Speak with Dead": "망자와 대화",
+    "Polymorph": "변신",
+    "Counterspell": "주문 방해",
+    "Bless": "축복",
+    "Bane": "액운",
+    "Hex": "주술",
+    "Healing Word": "치유의 단어",
+    "Revivify": "생환",
+    # 전투 용어
+    "Attack Rolls": "공격 굴림",
+    "Attack Roll": "공격 굴림",
+    "attack rolls": "공격 굴림",
+    "attack roll": "공격 굴림",
+    "Saving Throws": "내성 굴림",
+    "Saving Throw": "내성 굴림",
+    "saving throws": "내성 굴림",
+    "saving throw": "내성 굴림",
+}
+# ==========================================
+
 
 def setup_config() -> Tuple[str, str, str]:
     """
@@ -228,7 +390,38 @@ def split_xml_into_blocks(text: str, blocks_per_chunk: int) -> Tuple[str, str, L
     return header, footer, chunks, len(blocks)
 
 
+def build_glossary_prompt_section() -> str:
+    """
+    GLOSSARY 딕셔너리를 프롬프트용 텍스트로 변환한다.
+    용어가 없으면 빈 문자열 반환.
+    """
+    if not GLOSSARY:
+        return ""
+    lines = ["[고유 용어 번역 규칙]",
+             "아래 용어는 원문에 등장할 경우 반드시 지정된 한국어로 번역한다."]
+    for src, dst in GLOSSARY.items():
+        lines.append(f"  {src} → {dst}")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def apply_glossary(text: str) -> str:
+    """
+    번역 결과에 GLOSSARY를 직접 치환하여 2차 보정한다.
+    - 긴 표현을 먼저 처리(부분 매칭 방지)
+    - 영어 단어 경계(\b) 기준으로 치환
+    """
+    if not GLOSSARY:
+        return text
+    sorted_items = sorted(GLOSSARY.items(), key=lambda x: len(x[0]), reverse=True)
+    for src, dst in sorted_items:
+        pattern = r'\b' + re.escape(src) + r'\b'
+        text = re.sub(pattern, dst, text)
+    return text
+
+
 def build_prompt(content_chunk: str, filename: str, chunk_index: int, total_chunks: int) -> str:
+    glossary_section = build_glossary_prompt_section()
     return f"""너는 발더스 게이트 3 모드 한글화 전문가다.
 아래 XML <content> 블록들의 텍스트를 한국어로 번역한다.
 원문은 영어가 아닐 수도 있다(포르투갈어 등). 어떤 언어든 반드시 한국어로 번역한다.
@@ -244,7 +437,7 @@ def build_prompt(content_chunk: str, filename: str, chunk_index: int, total_chun
    (즉, &lt;LSTag ...&gt;와 &lt;/LSTag&gt;는 그대로 두고, 그 사이 텍스트만 한국어로 번역한다.)
 5) 설명, 주석, 마크다운 없이 번역된 <content> 블록들만 출력한다.
 
-[번역할 내용]
+{glossary_section}[번역할 내용]
 {content_chunk}
 """
 
@@ -370,6 +563,7 @@ def process_xml_file(original_content: str, filename: str, api_key: str, log_fil
 
             translated_chunk = restore_escaped_tags(translated_chunk, mapping)
             translated_chunk = reescape_if_model_unescaped(translated_chunk)
+            translated_chunk = apply_glossary(translated_chunk)  # 용어집 2차 보정
 
             out_blocks = CONTENT_BLOCK_RE.findall(translated_chunk)
 

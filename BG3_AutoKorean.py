@@ -420,14 +420,11 @@ def apply_glossary(text: str) -> str:
     return text
 
 
-def build_prompt(content_chunk: str, filename: str, chunk_index: int, total_chunks: int) -> str:
+def build_system_instruction() -> str:
     glossary_section = build_glossary_prompt_section()
     return f"""너는 발더스 게이트 3 모드 한글화 전문가다.
 아래 XML <content> 블록들의 텍스트를 한국어로 번역한다.
 원문은 영어가 아닐 수도 있다(포르투갈어 등). 어떤 언어든 반드시 한국어로 번역한다.
-
-[파일 정보]
-파일명: {filename} (진행률: {chunk_index}/{total_chunks})
 
 [절대 규칙]
 1) contentuid와 version 속성은 절대 수정하지 않는다.
@@ -437,7 +434,14 @@ def build_prompt(content_chunk: str, filename: str, chunk_index: int, total_chun
    (즉, &lt;LSTag ...&gt;와 &lt;/LSTag&gt;는 그대로 두고, 그 사이 텍스트만 한국어로 번역한다.)
 5) 설명, 주석, 마크다운 없이 번역된 <content> 블록들만 출력한다.
 
-{glossary_section}[번역할 내용]
+{glossary_section}"""
+
+
+def build_user_prompt(content_chunk: str, filename: str, chunk_index: int, total_chunks: int) -> str:
+    return f"""[파일 정보]
+파일명: {filename} (진행률: {chunk_index}/{total_chunks})
+
+[번역할 내용]
 {content_chunk}
 """
 
@@ -448,10 +452,12 @@ def call_gemini_chunk(
     chunk_index: int,
     total_chunks: int,
     api_key: str,
+    system_instruction: str,
 ) -> Tuple[Optional[str], str]:
-    prompt_text = build_prompt(content_chunk, filename, chunk_index, total_chunks)
+    user_text = build_user_prompt(content_chunk, filename, chunk_index, total_chunks)
     payload = {
-        "contents": [{"parts": [{"text": prompt_text}]}],
+        "systemInstruction": {"parts": [{"text": system_instruction}]},
+        "contents": [{"parts": [{"text": user_text}]}],
         "generationConfig": {"temperature": 0.1},
     }
 
@@ -531,6 +537,8 @@ def process_xml_file(original_content: str, filename: str, api_key: str, log_fil
 
     print(f"    -> 총 content 블록: {total_blocks}")
 
+    system_instruction = build_system_instruction()
+
     # 다운시프트 전 단계가 전부 실패해도 부분 번역 결과를 보존하기 위한 변수
     last_header = ""
     last_footer = ""
@@ -551,7 +559,7 @@ def process_xml_file(original_content: str, filename: str, api_key: str, log_fil
             print(f"      ▶ 청크 번역 ({idx}/{len(chunks)}) - 입력 블록 {len(in_blocks)}개")
 
             protected_chunk, mapping = protect_escaped_tags(chunk)
-            translated_chunk, status = call_gemini_chunk(protected_chunk, filename, idx, len(chunks), api_key)
+            translated_chunk, status = call_gemini_chunk(protected_chunk, filename, idx, len(chunks), api_key, system_instruction)
 
             if translated_chunk is None:
                 print(f"        ❌ 번역 실패. 원본 유지. 마지막 상태: {status}")

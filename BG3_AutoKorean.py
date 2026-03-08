@@ -9,8 +9,7 @@ from typing import List, Tuple, Optional
 
 
 # =============================================================================
-# BG3 모드 자동 한글화 스크립트
-# 제작: (배포자 이름/닉네임을 여기에 입력하세요)
+# BG3 모드 자동 한글화 스크립트 v2.0
 # =============================================================================
 #
 # ※ 처음 사용하시는 분은 아래 [1단계], [2단계]를 먼저 읽어주세요.
@@ -64,6 +63,11 @@ TARGET_ROOT_FOLDER = ""
 # 비워두면 스크립트와 같은 폴더에 translation_errors.txt 로 저장
 LOG_FILE = ""
 
+# 번역 캐시 파일 경로
+# 이미 번역한 텍스트를 저장해두고 재실행 시 재사용합니다.
+# 비워두면 스크립트와 같은 폴더에 translation_cache.json 으로 저장
+TRANSLATION_CACHE_FILE = ""
+
 # Korean 폴더가 이미 있으면 한글화 완료로 간주하고 스킵
 SKIP_IF_KOREAN_EXISTS = True
 
@@ -74,20 +78,23 @@ SKIP_IF_KOREAN_EXISTS = True
 # [고급 설정] 건드리지 않아도 됩니다
 # ==========================================
 INPUT_GLOB = "*.xml"
-DEFAULT_BLOCKS_PER_CHUNK = 60
-DOWNSHIFT_STEPS = [60, 40, 25, 15]
+
+# 토큰 기반 청크 설정
+MAX_TOKENS_PER_CHUNK = 4000
+DOWNSHIFT_TOKEN_STEPS = [4000, 2500, 1500, 800]
 
 MODELS_TO_TRY = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash-lite",   # 1순위: 저비용
+    "gemini-2.5-flash",         # 폴백
 ]
 
 BASE_URL = "https://generativelanguage.googleapis.com"
 TIMEOUT_SEC = 120
 CONTENT_BLOCK_RE = re.compile(r"(<content\b[^>]*>.*?</content>)", re.DOTALL | re.IGNORECASE)
+CONTENT_INNER_RE = re.compile(r"(<content\b[^>]*>)(.*?)(</content>)", re.DOTALL | re.IGNORECASE)
 ESCAPED_TAGS = {"br", "span"}
 # ==========================================
+
 
 # ==========================================
 # [용어집] 고유 용어 선번역 목록
@@ -96,7 +103,9 @@ ESCAPED_TAGS = {"br", "span"}
 # - 번역 후 코드가 한 번 더 치환하여 확실하게 적용
 # ==========================================
 GLOSSARY = {
+    # ──────────────────────────────────────
     # 동료 캐릭터
+    # ──────────────────────────────────────
     "Karlach": "카를라크",
     "Astarion": "아스타리온",
     "Gale": "게일",
@@ -112,27 +121,107 @@ GLOSSARY = {
     "Haunted One": "시달리는 자",
     "Viconia": "바이코니아",
     "Ketheric Thorm": "케더릭 토름",
-    # 주요 NPC / 세력
+    # ──────────────────────────────────────
+    # 주요 NPC / 세력 / 신
+    # ──────────────────────────────────────
     "Raphael": "라파엘",
     "Mizora": "미조라",
     "Orin": "오린",
-    "Gortash": "고르타시",
+    "Gortash": "고타쉬",
     "The Emperor": "황제",
     "Mind Flayer": "마인드 플레이어",
     "Illithid": "일리시드",
-    # 직업 - 바바리안
+    "Absolute": "절대자",
+    "The Absolute": "절대자",
+    "Chosen": "선택받은 자",
+    "Withers": "위더스",
+    "Vlaakith": "블라키스",
+    "Cazador": "카자도르",
+    "Isobel": "이소벨",
+    "Dame Aylin": "에일린 경",
+    "Elminster": "엘민스터",
+    # 신
+    "Myrkul": "미어쿨",
+    "Bhaal": "바알",
+    "Bane": "베인",
+    "Mystra": "미스트라",
+    "Shar": "샤",
+    "Selune": "셀루네",
+    "Lathander": "라샌더",
+    "Lolth": "롤쓰",
+    "Tyr": "티르",
+    "Silvanus": "실바누스",
+    "Tempus": "템퍼스",
+    # 세력
+    "Flaming Fist": "불주먹 용병대",
+    "Zhentarim": "젠타림",
+    "Harpers": "하퍼",
+    "Emerald Grove": "에메랄드 숲",
+    "Goblin": "고블린",
+    "Githyanki": "기스양키",
+    "Cambion": "캠비온",
+    "Nautiloid": "노틸로이드",
+    "Underdark": "언더다크",
+    "Sword Coast": "소드 코스트",
+    "Faerun": "페이룬",
+    "Astral Plane": "아스트랄계",
+    "Nine Hells": "나인 헬",
+    # ──────────────────────────────────────
+    # 종족
+    # ──────────────────────────────────────
+    "Human": "인간",
+    "Elf": "엘프",
+    "High Elf": "하이 엘프",
+    "Wood Elf": "우드 엘프",
+    "Drow": "드로우",
+    "Lolth-Sworn Drow": "롤쓰 스원 드로우",
+    "Seldarine Drow": "셀다린 드로우",
+    "Tiefling": "티플링",
+    "Asmodeus Tiefling": "아스모데우스 티플링",
+    "Mephistopheles Tiefling": "메피스토펠레스 티플링",
+    "Zariel Tiefling": "자리엘 티플링",
+    "Dwarf": "드워프",
+    "Gold Dwarf": "골드 드워프",
+    "Shield Dwarf": "실드 드워프",
+    "Duergar": "드웨가",
+    "Halfling": "하플링",
+    "Lightfoot Halfling": "라이트풋 하플링",
+    "Strongheart Halfling": "스트롱하트 하플링",
+    "Gnome": "노움",
+    "Rock Gnome": "바위 노움",
+    "Forest Gnome": "숲 노움",
+    "Deep Gnome": "딥 노움",
+    "Half-Elf": "하프엘프",
+    "High Half-Elf": "하이 하프 엘프",
+    "Wood Half-Elf": "우드 하프 엘프",
+    "Drow Half-Elf": "드로우 하프 엘프",
+    "Dragonborn": "드래곤본",
+    "Half-Orc": "하프오크",
+    # ──────────────────────────────────────
+    # 능력치 (6대 스탯)
+    # ──────────────────────────────────────
+    "Strength": "근력",
+    "Dexterity": "민첩",
+    "Constitution": "건강",
+    "Intelligence": "지능",
+    "Wisdom": "지혜",
+    "Charisma": "매력",
+    # ──────────────────────────────────────
+    # 직업
+    # ──────────────────────────────────────
+    # 바바리안
     "Barbarian": "바바리안",
     "Wildheart": "야생의심장",
     "Berserker": "광전사",
     "Wild Magic": "야생 마법",
     "Giant": "거인",
-    # 직업 - 바드
+    # 바드
     "Bard": "바드",
     "College of Lore": "전승학파",
     "College of Valour": "용맹학파",
     "College of Swords": "검술학파",
     "College of Glamour": "요술학파",
-    # 직업 - 클레릭
+    # 클레릭
     "Cleric": "클레릭",
     "Life Domain": "생명 권역",
     "Light Domain": "빛 권역",
@@ -142,48 +231,49 @@ GLOSSARY = {
     "Tempest Domain": "폭풍 권역",
     "War Domain": "전쟁 권역",
     "Death Domain": "죽음 권역",
-    # 직업 - 드루이드
+    # 드루이드
     "Druid": "드루이드",
     "Circle of the Land": "땅의 회합",
     "Circle of the Moon": "달의 회합",
     "Circle of the Spores": "포자의 회합",
     "Circle of the Stars": "별의 회합",
-    # 직업 - 파이터
+    # 파이터
     "Fighter": "파이터",
     "Battle Master": "전투의 대가",
     "Eldritch Knight": "비술 기사",
     "Champion": "투사",
     "Arcane Archer": "비전 궁수",
-    # 직업 - 몽크
+    # 몽크
     "Monk": "몽크",
     "Way of the Four Elements": "사원소의 길",
     "Way of the Open Hand": "열린 손의 길",
     "Way of Shadow": "그림자의 길",
     "Way of the Drunken Master": "취권 달인의 길",
-    # 직업 - 팔라딘
+    # 팔라딘
     "Paladin": "팔라딘",
     "Oath of Devotion": "헌신의 맹세",
     "Oath of the Ancients": "선조의 맹세",
     "Oath of Vengeance": "복수의 맹세",
     "Oath of the Crown": "왕관의 맹세",
-    # 직업 - 레인저
+    "Oathbreaker": "맹세파기자",
+    # 레인저
     "Ranger": "레인저",
     "Hunter": "사냥꾼",
     "Beast Master": "야수 조련사",
     "Gloom Stalker": "어둠 추척자",
     "Swarmkeeper": "무리지기",
-    # 직업 - 로그
+    # 로그
     "Rogue": "로그",
     "Thief": "도둑",
     "Arcane Trickster": "비전 괴도",
     "Assassin": "암살자",
     "Swashbuckler": "칼잡이",
-    # 직업 - 소서러
+    # 소서러
     "Sorcerer": "소서러",
     "Draconic Bloodline": "용의 혈통",
     "Storm Sorcery": "폭풍 술사",
     "Shadow Magic": "그림자 마법",
-    # 직업 - 워락
+    # 워락
     "Warlock": "워락",
     "The Fiend": "마족",
     "The Great Old One": "고대의 지배자",
@@ -193,11 +283,13 @@ GLOSSARY = {
     "Pact of the Chain": "사슬의 계약",
     "Pact of the Blade": "검의 계약",
     "Pact of the Tome": "장서의 계약",
-    # 직업 - 위저드
+    # 위저드
     "Wizard": "위저드",
     "Bladesinging": "칼날 노래",
     "Bladesinger": "칼날 노래",
+    # ──────────────────────────────────────
     # 주문 학파 (긴 표현 먼저 - 부분 매칭 방지)
+    # ──────────────────────────────────────
     "School of Abjuration": "방호술",
     "Abjuration School": "방호술",
     "Abjuration": "방호술",
@@ -222,12 +314,15 @@ GLOSSARY = {
     "School of Transmutation": "변환술",
     "Transmutation School": "변환술",
     "Transmutation": "변환술",
+    # ──────────────────────────────────────
     # 주문명 (자주 등장하는 것들)
+    # ──────────────────────────────────────
     "Fireball": "화염구",
     "Lightning Bolt": "번개 줄기",
     "Haste": "가속",
     "Slow": "둔화",
     "Invisibility": "투명화",
+    "Greater Invisibility": "상위 투명화",
     "Misty Step": "안개 걸음",
     "Thunderwave": "천둥파",
     "Animate Dead": "망자 조종",
@@ -235,11 +330,44 @@ GLOSSARY = {
     "Polymorph": "변신",
     "Counterspell": "주문 방해",
     "Bless": "축복",
-    "Bane": "액운",
     "Hex": "주술",
     "Healing Word": "치유의 단어",
+    "Cure Wounds": "상처 치유",
     "Revivify": "생환",
-    # 전투 용어
+    "Shield of Faith": "신념의 보호막",
+    "Spirit Guardians": "영혼의 수호자",
+    "Eldritch Blast": "섬뜩한 작렬",
+    "Magic Missile": "마법의 화살",
+    "Mage Hand": "마법사의 손",
+    "Sacred Flame": "신성한 불꽃",
+    "Guidance": "인도",
+    "Darkness": "어둠",
+    "Daylight": "일광",
+    "Dispel Magic": "마법 해제",
+    "Hold Person": "인물 속박",
+    "Hold Monster": "괴물 속박",
+    "Dimension Door": "차원문",
+    "Fly": "비행",
+    "Feather Fall": "깃털 낙하",
+    "Knock": "개방",
+    "Pass Without Trace": "흔적 없는 이동",
+    "Silence": "침묵",
+    "Smite": "강타",
+    "Divine Smite": "신성 강타",
+    "Sneak Attack": "급소 공격",
+    "Wild Shape": "야생 변신",
+    "Rage": "격노",
+    "Action Surge": "행동 쇄도",
+    "Second Wind": "재기",
+    "Lay on Hands": "레이온핸즈",
+    "Bardic Inspiration": "바드의 영감",
+    "Channel Divinity": "신성한 도관",
+    "Ki": "기",
+    "Sorcery Points": "소서리 점수",
+    "Metamagic": "초마법",
+    # ──────────────────────────────────────
+    # 전투 / 시스템 용어
+    # ──────────────────────────────────────
     "Attack Rolls": "공격 굴림",
     "Attack Roll": "공격 굴림",
     "attack rolls": "공격 굴림",
@@ -248,18 +376,466 @@ GLOSSARY = {
     "Saving Throw": "내성 굴림",
     "saving throws": "내성 굴림",
     "saving throw": "내성 굴림",
+    "Damage Roll": "피해 굴림",
+    "Damage Rolls": "피해 굴림",
+    "Ability Check": "능력 판정",
+    "Ability Checks": "능력 판정",
+    "Armor Class": "방어도",
+    "Armour Class": "방어도",
+    "Hit Points": "체력",
+    "Hit Dice": "생명력 주사위",
+    "Proficiency": "숙련",
+    "Proficiency Bonus": "숙련 보너스",
+    "Expertise": "통달",
+    "Advantage": "유리",
+    "Disadvantage": "불리",
+    "Concentration": "집중",
+    "Bonus Action": "추가 행동",
+    "Bonus Actions": "추가 행동",
+    "Reaction": "반응",
+    "Reactions": "반응",
+    "Critical Hit": "치명타",
+    "Critical Hits": "치명타",
+    "Inspiration": "영감",
+    "Initiative": "선제권",
+    "Spell Slot": "주문 슬롯",
+    "Spell Slots": "주문 슬롯",
+    "Spell Save DC": "주문 내성 난이도",
+    "Difficulty Class": "난이도",
+    "Cantrip": "소마법",
+    "Cantrips": "소마법",
+    "Ritual": "의식",
+    "Short Rest": "짧은 휴식",
+    "Long Rest": "긴 휴식",
+    "Camp": "야영지",
+    "Multiclassing": "멀티 클래싱",
+    "Finesse": "기교",
+    "Versatile": "다용도",
+    "Two-Handed": "양손",
+    "Light Armor": "경갑",
+    "Medium Armor": "평갑",
+    "Heavy Armor": "중갑",
+    "Shield": "방패",
+    "Feat": "재주",
+    "Feats": "재주",
+    "Background": "배경",
+    # ──────────────────────────────────────
+    # 상태이상 / 상태 효과
+    # ──────────────────────────────────────
+    "Prone": "쓰러짐",
+    "Stunned": "기절",
+    "Frightened": "공포",
+    "Charmed": "매혹",
+    "Poisoned": "중독",
+    "Blinded": "실명",
+    "Deafened": "귀먹음",
+    "Restrained": "속박",
+    "Paralyzed": "마비",
+    "Petrified": "석화",
+    "Incapacitated": "행동불능",
+    "Invisible": "투명",
+    "Exhaustion": "피로",
+    "Burning": "불타는",
+    "Bleeding": "출혈",
+    "Blessed": "축복받은",
+    "Cursed": "저주받은",
+    "Sleeping": "수면",
+    "Entangled": "얽힘",
+    # ──────────────────────────────────────
+    # 피해 유형
+    # ──────────────────────────────────────
+    "Fire Damage": "화염 피해",
+    "Cold Damage": "냉기 피해",
+    "Lightning Damage": "번개 피해",
+    "Thunder Damage": "천둥 피해",
+    "Radiant Damage": "광휘 피해",
+    "Necrotic Damage": "괴저 피해",
+    "Psychic Damage": "정신 피해",
+    "Poison Damage": "독 피해",
+    "Acid Damage": "산 피해",
+    "Force Damage": "역장 피해",
+    "Bludgeoning Damage": "타격 피해",
+    "Piercing Damage": "관통 피해",
+    "Slashing Damage": "참격 피해",
+    "Healing": "치유",
+    "Temporary Hit Points": "임시 체력",
+    # 피해 유형 단독 (짧은 형태)
+    "Radiant": "광휘",
+    "Necrotic": "괴저",
+    "Psychic": "정신",
+    "Bludgeoning": "타격",
+    "Piercing": "관통",
+    "Slashing": "참격",
+    # ──────────────────────────────────────
+    # 기술 (Skills)
+    # ──────────────────────────────────────
+    "Acrobatics": "곡예",
+    "Animal Handling": "동물 조련",
+    "Arcana": "비전학",
+    "Athletics": "운동",
+    "Deception": "기만",
+    "History": "역사",
+    "Insight": "통찰",
+    "Intimidation": "위협",
+    "Investigation": "수사",
+    "Medicine": "의학",
+    "Nature": "자연",
+    "Perception": "인지",
+    "Performance": "연행",
+    "Persuasion": "설득",
+    "Religion": "종교",
+    "Sleight of Hand": "손재주",
+    "Stealth": "은신",
+    "Survival": "생존",
+    # ──────────────────────────────────────
+    # 기타 게임 용어
+    # ──────────────────────────────────────
+    "Darkvision": "암시야",
+    "Superior Darkvision": "상위 암시야",
+    "Resistance": "저항",
+    "Immunity": "면역",
+    "Vulnerability": "취약",
+    "Familiar": "패밀리어",
+    "Companion": "동료",
+    "Tadpole": "올챙이",
+    "Ceremorphosis": "세레모포시스",
+    "Elder Brain": "엘더 브레인",
+    "Psionic": "사이오닉",
 }
 # ==========================================
 
 
-def setup_config() -> Tuple[str, str, str]:
+# ==========================================
+# [번역 캐시]
+# ==========================================
+_translation_cache: Optional[dict] = None
+_cache_dirty: bool = False
+
+
+def load_translation_cache(cache_file: str) -> dict:
+    global _translation_cache
+    if _translation_cache is not None:
+        return _translation_cache
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                _translation_cache = json.load(f)
+                print(f"  [캐시] {len(_translation_cache)}개 항목 로드됨")
+                return _translation_cache
+        except (json.JSONDecodeError, IOError):
+            pass
+    _translation_cache = {}
+    return _translation_cache
+
+
+def save_translation_cache(cache_file: str) -> None:
+    global _cache_dirty
+    if not _cache_dirty or _translation_cache is None:
+        return
+    os.makedirs(os.path.dirname(os.path.abspath(cache_file)), exist_ok=True)
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(_translation_cache, f, ensure_ascii=False)
+    _cache_dirty = False
+
+
+def cache_get(original: str) -> Optional[str]:
+    if _translation_cache is None:
+        return None
+    return _translation_cache.get(original)
+
+
+def cache_put(original: str, translated: str) -> None:
+    global _cache_dirty
+    if _translation_cache is not None:
+        _translation_cache[original] = translated
+        _cache_dirty = True
+
+
+# ==========================================
+# [로컬 번역] API 없이 처리
+# ==========================================
+_SKIP_PATTERNS = re.compile(
+    r"^("
+    r"\d+[\d.,/%+\-*x ]*"
+    r"|[+\-]\d+.*"
+    r"|\d+d\d+.*"
+    r"|[A-Z_]{2,}"
+    r"|<[^>]+>"
+    r")$",
+    re.IGNORECASE
+)
+
+
+def should_skip_translation(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return True
+    korean_chars = sum(1 for c in stripped if '\uAC00' <= c <= '\uD7A3')
+    total_chars = sum(1 for c in stripped if not c.isspace())
+    if total_chars > 0 and korean_chars / total_chars >= 0.5:
+        return True
+    if _SKIP_PATTERNS.match(stripped):
+        return True
+    return False
+
+
+def try_glossary_only(text: str) -> Optional[str]:
+    stripped = text.strip()
+    if stripped in GLOSSARY:
+        return GLOSSARY[stripped]
+    for src, dst in GLOSSARY.items():
+        if stripped.lower() == src.lower():
+            return dst
+    return None
+
+
+def estimate_tokens(text: str) -> int:
+    return max(1, len(text) // 3) + 5
+
+
+def chunk_by_tokens(items: list, max_tokens: int) -> List[list]:
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
+    for item in items:
+        item_tokens = estimate_tokens(item[1])
+        if item_tokens > max_tokens:
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = []
+                current_tokens = 0
+            chunks.append([item])
+            continue
+        if current_tokens + item_tokens > max_tokens and current_chunk:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_tokens = 0
+        current_chunk.append(item)
+        current_tokens += item_tokens
+    if current_chunk:
+        chunks.append(current_chunk)
+    return chunks
+
+
+# ==========================================
+# [태그 보호]
+# ==========================================
+def protect_escaped_lstags(text: str) -> Tuple[str, List[Tuple[str, str]]]:
+    mapping: List[Tuple[str, str]] = []
+    open_pat = re.compile(r"&lt;\s*LSTag\b.*?&gt;", re.IGNORECASE)
+    for i, m in enumerate(reversed(list(open_pat.finditer(text))), start=1):
+        ph = f"__ESCAPED_LSTAG_OPEN_{i}__"
+        text = text[:m.start()] + ph + text[m.end():]
+        mapping.append((ph, m.group(0)))
+    close_pat = re.compile(r"&lt;\s*/\s*LSTag\s*&gt;", re.IGNORECASE)
+    for i, m in enumerate(reversed(list(close_pat.finditer(text))), start=1):
+        ph = f"__ESCAPED_LSTAG_CLOSE_{i}__"
+        text = text[:m.start()] + ph + text[m.end():]
+        mapping.append((ph, m.group(0)))
+    return text, mapping
+
+
+def protect_escaped_tags(text: str) -> Tuple[str, List[Tuple[str, str]]]:
+    mapping: List[Tuple[str, str]] = []
+    text, m_lst = protect_escaped_lstags(text)
+    mapping.extend(m_lst)
+    for tag in ESCAPED_TAGS:
+        ph_self = f"__ESCAPED_{tag.upper()}_SELF__"
+        ph_open = f"__ESCAPED_{tag.upper()}_OPEN__"
+        ph_close = f"__ESCAPED_{tag.upper()}_CLOSE__"
+        text = re.sub(fr"&lt;\s*{tag}\s*/\s*&gt;", ph_self, text, flags=re.IGNORECASE)
+        text = re.sub(fr"&lt;\s*{tag}\s*&gt;", ph_open, text, flags=re.IGNORECASE)
+        text = re.sub(fr"&lt;\s*/\s*{tag}\s*&gt;", ph_close, text, flags=re.IGNORECASE)
+        mapping.append((ph_self, f"&lt;{tag} /&gt;"))
+        mapping.append((ph_open, f"&lt;{tag}&gt;"))
+        mapping.append((ph_close, f"&lt;/{tag}&gt;"))
+    return text, mapping
+
+
+def restore_escaped_tags(text: str, mapping: List[Tuple[str, str]]) -> str:
+    for ph, original in mapping:
+        text = text.replace(ph, original)
+    return text
+
+
+def reescape_if_model_unescaped(text: str) -> str:
+    for tag in ESCAPED_TAGS:
+        text = re.sub(fr"<\s*{tag}\s*/\s*>", f"&lt;{tag} /&gt;", text, flags=re.IGNORECASE)
+        text = re.sub(fr"<\s*{tag}\s*>", f"&lt;{tag}&gt;", text, flags=re.IGNORECASE)
+        text = re.sub(fr"<\s*/\s*{tag}\s*>", f"&lt;/{tag}&gt;", text, flags=re.IGNORECASE)
+
+    def _repl_open(m: re.Match) -> str:
+        return f"&lt;{m.group(0)[1:-1]}&gt;"
+
+    text = re.sub(r"<\s*LSTag\b[^>]*?>", _repl_open, text, flags=re.IGNORECASE)
+    text = re.sub(r"<\s*/\s*LSTag\s*>", "&lt;/LSTag&gt;", text, flags=re.IGNORECASE)
+
+    def _repl_self(m: re.Match) -> str:
+        return f"&lt;{m.group(0)[1:-1]}&gt;"
+
+    text = re.sub(r"<\s*LSTag\b[^>]*?/\s*>", _repl_self, text, flags=re.IGNORECASE)
+
+    return text
+
+
+# ==========================================
+# [용어집 유틸]
+# ==========================================
+def build_glossary_prompt_section() -> str:
+    if not GLOSSARY:
+        return ""
+    lines = ["[고유 용어 번역 규칙]",
+             "아래 용어는 원문에 등장할 경우 반드시 지정된 한국어로 번역한다."]
+    for src, dst in GLOSSARY.items():
+        lines.append(f"  {src} -> {dst}")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def apply_glossary(text: str) -> str:
+    if not GLOSSARY:
+        return text
+    for src, dst in sorted(GLOSSARY.items(), key=lambda x: len(x[0]), reverse=True):
+        text = re.sub(r'\b' + re.escape(src) + r'\b', dst, text)
+    return text
+
+
+# ==========================================
+# [Gemini API - 경량 포맷 + systemInstruction + thinking off]
+# ==========================================
+_SYSTEM_INSTRUCTION: Optional[str] = None
+
+
+def get_system_instruction() -> str:
+    global _SYSTEM_INSTRUCTION
+    if _SYSTEM_INSTRUCTION is None:
+        glossary_section = build_glossary_prompt_section()
+        _SYSTEM_INSTRUCTION = f"""너는 발더스 게이트 3 모드 한글화 전문가다.
+
+[입력 형식]
+번호|원문텍스트
+(한 줄에 하나씩, 번호와 텍스트가 |로 구분)
+
+[출력 형식]
+번호|번역된텍스트
+(입력과 동일한 번호를 유지하고, 텍스트만 한국어로 번역)
+
+[절대 규칙]
+1) 번호를 절대 바꾸지 않는다. 입력의 번호를 그대로 출력한다.
+2) 줄 수를 유지한다. 입력이 N줄이면 출력도 정확히 N줄이어야 한다.
+3) 원문에 &lt;br&gt;, &lt;span&gt; 같은 이스케이프 태그는 그대로 유지한다.
+4) &lt;LSTag ...&gt; ... &lt;/LSTag&gt; 이스케이프 태그도 그대로 유지하고 사이 텍스트만 번역한다.
+5) 빈 텍스트는 빈 채로 유지한다. (예: 3| -> 3|)
+6) 설명, 주석, 마크다운 없이 번역된 줄만 출력한다.
+7) 원문은 영어가 아닐 수도 있다(포르투갈어 등). 어떤 언어든 한국어로 번역한다.
+8) 주문 이름 "Bane"은 신 이름이 아니라 주문으로 쓰인 경우 "액운"으로 번역한다.
+
+{glossary_section}"""
+    return _SYSTEM_INSTRUCTION
+
+
+def extract_block_parts(block: str) -> Tuple[str, str, str]:
+    m = CONTENT_INNER_RE.search(block)
+    if m:
+        return m.group(1), m.group(2), m.group(3)
+    return block, "", ""
+
+
+def call_gemini(lines_text: str, filename: str,
+                chunk_index: int, total_chunks: int,
+                api_key: str) -> Tuple[Optional[str], str]:
+    payload = {
+        "system_instruction": {"parts": [{"text": get_system_instruction()}]},
+        "contents": [{"parts": [{"text": f"[파일: {filename} ({chunk_index}/{total_chunks})]\n{lines_text}"}]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
+    last_status = "unknown"
+
+    for model_name in MODELS_TO_TRY:
+        url = f"{BASE_URL}/v1beta/models/{model_name}:generateContent"
+        for attempt in range(1, 4):
+            try:
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=TIMEOUT_SEC) as resp:
+                    rj = json.loads(resp.read().decode("utf-8"))
+
+                candidates = rj.get("candidates", [])
+                if not candidates:
+                    last_status = f"no_candidates ({model_name})"
+                    continue
+
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if not parts:
+                    last_status = f"no_parts ({model_name})"
+                    continue
+
+                translated = parts[0].get("text", "").replace("```", "").strip()
+                if translated.strip() == lines_text.strip():
+                    last_status = f"unchanged_output ({model_name})"
+                    continue
+
+                return translated, f"ok ({model_name})"
+
+            except urllib.error.HTTPError as e:
+                body = ""
+                try:
+                    body = e.read().decode("utf-8", errors="replace")
+                except Exception:
+                    pass
+
+                if e.code == 429:
+                    wait = 10 + attempt * 15
+                    print(f"        [!] 429 제한. {wait}초 대기 ({model_name})")
+                    time.sleep(wait)
+                    continue
+                elif e.code == 404:
+                    last_status = f"404 ({model_name})"
+                    break
+                elif e.code >= 500:
+                    time.sleep(5 * attempt)
+                    continue
+                else:
+                    last_status = f"HTTP {e.code} ({model_name}) {body[:200]}"
+                    break
+
+            except Exception as e:
+                last_status = f"error: {e} ({model_name})"
+                break
+
+    return None, last_status
+
+
+def parse_response(response: str, expected_count: int) -> Optional[dict]:
+    result = {}
+    for line in response.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        sep = line.find("|")
+        if sep == -1:
+            continue
+        try:
+            result[int(line[:sep].strip())] = line[sep + 1:]
+        except ValueError:
+            continue
+    return result if len(result) >= expected_count * 0.8 else None
+
+
+# ==========================================
+# [설정]
+# ==========================================
+def setup_config() -> Tuple[str, str, str, str]:
     """
-    API 키, 경로, 로그 파일 경로를 확정한다.
+    API 키, 경로, 로그 파일 경로, 캐시 파일 경로를 확정한다.
     코드에 직접 입력된 값이 없으면 실행 시 사용자에게 입력받는다.
     """
     # --- API 키 확정 ---
-    # 환경변수 → 코드 직접 입력 → 실행 시 입력 순으로 확인
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip() or API_KEY.strip()
+    api_key = API_KEY.strip()
 
     if not api_key:
         print("=" * 60)
@@ -297,313 +873,154 @@ def setup_config() -> Tuple[str, str, str]:
     # --- 로그 파일 경로 확정 ---
     log_file = LOG_FILE.strip()
     if not log_file:
-        # 스크립트와 같은 폴더에 저장
         script_dir = Path(__file__).parent
         log_file = str(script_dir / "translation_errors.txt")
 
-    return api_key, root_folder, log_file
+    # --- 캐시 파일 경로 확정 ---
+    cache_file = TRANSLATION_CACHE_FILE.strip()
+    if not cache_file:
+        script_dir = Path(__file__).parent
+        cache_file = str(script_dir / "translation_cache.json")
+
+    return api_key, root_folder, log_file, cache_file
 
 
-def protect_escaped_lstags(text: str) -> Tuple[str, List[Tuple[str, str]]]:
-    mapping: List[Tuple[str, str]] = []
-    open_pat = re.compile(r"&lt;\s*LSTag\b.*?&gt;", re.IGNORECASE)
-    opens = list(open_pat.finditer(text))
-    for i, m in enumerate(reversed(opens), start=1):
-        original = m.group(0)
-        ph = f"__ESCAPED_LSTAG_OPEN_{i}__"
-        text = text[:m.start()] + ph + text[m.end():]
-        mapping.append((ph, original))
-
-    close_pat = re.compile(r"&lt;\s*/\s*LSTag\s*&gt;", re.IGNORECASE)
-    closes = list(close_pat.finditer(text))
-    for i, m in enumerate(reversed(closes), start=1):
-        original = m.group(0)
-        ph = f"__ESCAPED_LSTAG_CLOSE_{i}__"
-        text = text[:m.start()] + ph + text[m.end():]
-        mapping.append((ph, original))
-
-    return text, mapping
-
-
-def protect_escaped_tags(text: str) -> Tuple[str, List[Tuple[str, str]]]:
-    mapping: List[Tuple[str, str]] = []
-    text, m_lst = protect_escaped_lstags(text)
-    mapping.extend(m_lst)
-
-    for tag in ESCAPED_TAGS:
-        ph_self = f"__ESCAPED_{tag.upper()}_SELF__"
-        ph_open = f"__ESCAPED_{tag.upper()}_OPEN__"
-        ph_close = f"__ESCAPED_{tag.upper()}_CLOSE__"
-
-        text = re.sub(fr"&lt;\s*{tag}\s*/\s*&gt;", ph_self, text, flags=re.IGNORECASE)
-        text = re.sub(fr"&lt;\s*{tag}\s*&gt;", ph_open, text, flags=re.IGNORECASE)
-        text = re.sub(fr"&lt;\s*/\s*{tag}\s*&gt;", ph_close, text, flags=re.IGNORECASE)
-
-        mapping.append((ph_self, f"&lt;{tag} /&gt;"))
-        mapping.append((ph_open, f"&lt;{tag}&gt;"))
-        mapping.append((ph_close, f"&lt;/{tag}&gt;"))
-
-    return text, mapping
-
-
-def restore_escaped_tags(text: str, mapping: List[Tuple[str, str]]) -> str:
-    for ph, original in mapping:
-        text = text.replace(ph, original)
-    return text
-
-
-def reescape_if_model_unescaped(text: str) -> str:
-    for tag in ESCAPED_TAGS:
-        text = re.sub(fr"<\s*{tag}\s*/\s*>", f"&lt;{tag} /&gt;", text, flags=re.IGNORECASE)
-        text = re.sub(fr"<\s*{tag}\s*>", f"&lt;{tag}&gt;", text, flags=re.IGNORECASE)
-        text = re.sub(fr"<\s*/\s*{tag}\s*>", f"&lt;/{tag}&gt;", text, flags=re.IGNORECASE)
-
-    def _repl_open(m: re.Match) -> str:
-        inside = m.group(0)[1:-1]
-        return f"&lt;{inside}&gt;"
-
-    text = re.sub(r"<\s*LSTag\b[^>]*?>", _repl_open, text, flags=re.IGNORECASE)
-    text = re.sub(r"<\s*/\s*LSTag\s*>", "&lt;/LSTag&gt;", text, flags=re.IGNORECASE)
-
-    def _repl_self(m: re.Match) -> str:
-        inside = m.group(0)[1:-1]
-        return f"&lt;{inside}&gt;"
-
-    text = re.sub(r"<\s*LSTag\b[^>]*?/\s*>", _repl_self, text, flags=re.IGNORECASE)
-
-    return text
-
-
-def split_xml_into_blocks(text: str, blocks_per_chunk: int) -> Tuple[str, str, List[str], int]:
-    matches = list(CONTENT_BLOCK_RE.finditer(text))
-    if not matches:
-        return text, "", [text], 0
-
-    header = text[:matches[0].start()]
-    footer = text[matches[-1].end():]
-    blocks = [m.group(1) for m in matches]
-
-    chunks: List[str] = []
-    for i in range(0, len(blocks), blocks_per_chunk):
-        chunks.append("\n".join(blocks[i:i + blocks_per_chunk]))
-
-    return header, footer, chunks, len(blocks)
-
-
-def build_glossary_prompt_section() -> str:
-    """
-    GLOSSARY 딕셔너리를 프롬프트용 텍스트로 변환한다.
-    용어가 없으면 빈 문자열 반환.
-    """
-    if not GLOSSARY:
-        return ""
-    lines = ["[고유 용어 번역 규칙]",
-             "아래 용어는 원문에 등장할 경우 반드시 지정된 한국어로 번역한다."]
-    for src, dst in GLOSSARY.items():
-        lines.append(f"  {src} → {dst}")
-    lines.append("")
-    return "\n".join(lines) + "\n"
-
-
-def apply_glossary(text: str) -> str:
-    """
-    번역 결과에 GLOSSARY를 직접 치환하여 2차 보정한다.
-    - 긴 표현을 먼저 처리(부분 매칭 방지)
-    - 영어 단어 경계(\b) 기준으로 치환
-    """
-    if not GLOSSARY:
-        return text
-    sorted_items = sorted(GLOSSARY.items(), key=lambda x: len(x[0]), reverse=True)
-    for src, dst in sorted_items:
-        pattern = r'\b' + re.escape(src) + r'\b'
-        text = re.sub(pattern, dst, text)
-    return text
-
-
-def build_prompt(content_chunk: str, filename: str, chunk_index: int, total_chunks: int) -> str:
-    glossary_section = build_glossary_prompt_section()
-    return f"""너는 발더스 게이트 3 모드 한글화 전문가다.
-아래 XML <content> 블록들의 텍스트를 한국어로 번역한다.
-원문은 영어가 아닐 수도 있다(포르투갈어 등). 어떤 언어든 반드시 한국어로 번역한다.
-
-[파일 정보]
-파일명: {filename} (진행률: {chunk_index}/{total_chunks})
-
-[절대 규칙]
-1) contentuid와 version 속성은 절대 수정하지 않는다.
-2) <content> 태그 구조를 깨뜨리지 않는다. 블록 개수와 순서도 유지한다.
-3) 원문에 &lt;br&gt;, &lt;span&gt; 같은 이스케이프 문자열 태그는 절대 <br>, <span>로 풀지 말고 그대로 유지한다.
-4) 원문에 &lt;LSTag ...&gt; ... &lt;/LSTag&gt; 처럼 이스케이프된 LSTag도 절대 실제 태그 <LSTag ...>로 풀지 말고 그대로 유지한다.
-   (즉, &lt;LSTag ...&gt;와 &lt;/LSTag&gt;는 그대로 두고, 그 사이 텍스트만 한국어로 번역한다.)
-5) 설명, 주석, 마크다운 없이 번역된 <content> 블록들만 출력한다.
-
-{glossary_section}[번역할 내용]
-{content_chunk}
-"""
-
-
-def call_gemini_chunk(
-    content_chunk: str,
-    filename: str,
-    chunk_index: int,
-    total_chunks: int,
-    api_key: str,
-) -> Tuple[Optional[str], str]:
-    prompt_text = build_prompt(content_chunk, filename, chunk_index, total_chunks)
-    payload = {
-        "contents": [{"parts": [{"text": prompt_text}]}],
-        "generationConfig": {"temperature": 0.1},
-    }
-
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key,
-    }
-
-    last_status = "unknown"
-
-    for model_name in MODELS_TO_TRY:
-        url = f"{BASE_URL}/v1beta/models/{model_name}:generateContent"
-
-        for attempt in range(1, 4):
-            try:
-                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=TIMEOUT_SEC) as resp:
-                    result_json = json.loads(resp.read().decode("utf-8"))
-
-                candidates = result_json.get("candidates", [])
-                if not candidates:
-                    last_status = f"no_candidates ({model_name})"
-                    continue
-
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if not parts:
-                    last_status = f"no_parts ({model_name})"
-                    continue
-
-                translated = parts[0].get("text", "")
-                translated = translated.replace("```xml", "").replace("```", "").strip()
-
-                if translated.strip() == content_chunk.strip():
-                    last_status = f"unchanged_output ({model_name})"
-                    continue
-
-                return translated, f"ok ({model_name})"
-
-            except urllib.error.HTTPError as e:
-                body = ""
-                try:
-                    body = e.read().decode("utf-8", errors="replace")
-                except Exception:
-                    pass
-
-                if e.code == 429:
-                    wait = 10 + attempt * 15
-                    last_status = f"429 wait {wait}s ({model_name})"
-                    print(f"        [!] 429 제한. {wait}초 대기 후 재시도 ({model_name})")
-                    time.sleep(wait)
-                    continue
-                elif e.code == 404:
-                    last_status = f"404 model not found ({model_name})"
-                    break
-                elif e.code >= 500:
-                    wait = 5 * attempt
-                    last_status = f"{e.code} server error wait {wait}s ({model_name})"
-                    time.sleep(wait)
-                    continue
-                else:
-                    last_status = f"HTTP {e.code} {e.reason} ({model_name}) {body[:200]}"
-                    break
-
-            except Exception as e:
-                last_status = f"connection error: {e} ({model_name})"
-                break
-
-    return None, last_status
-
-
-def process_xml_file(original_content: str, filename: str, api_key: str, log_file: str) -> str:
+# ==========================================
+# [번역 파이프라인]
+# ==========================================
+def process_xml_file(original_content: str, filename: str,
+                     api_key: str, log_file: str) -> str:
     matches = list(CONTENT_BLOCK_RE.finditer(original_content))
     total_blocks = len(matches)
     if total_blocks == 0:
         return original_content
 
-    print(f"    -> 총 content 블록: {total_blocks}")
+    all_blocks = []
+    for m in matches:
+        full = m.group(1)
+        open_tag, inner, close_tag = extract_block_parts(full)
+        all_blocks.append((full, open_tag, inner, close_tag))
 
-    # 다운시프트 전 단계가 전부 실패해도 부분 번역 결과를 보존하기 위한 변수
-    last_header = ""
-    last_footer = ""
-    last_final_blocks: List[str] = []
+    # 중복 제거
+    unique_texts: dict = {}
+    block_to_unique: List[Optional[int]] = []
+    for _, _, inner, _ in all_blocks:
+        stripped = inner.strip()
+        if not stripped:
+            block_to_unique.append(None)
+            continue
+        if stripped not in unique_texts:
+            unique_texts[stripped] = len(unique_texts) + 1
+        block_to_unique.append(unique_texts[stripped])
 
-    for blocks_per_chunk in DOWNSHIFT_STEPS:
-        header, footer, chunks, _ = split_xml_into_blocks(original_content, blocks_per_chunk=blocks_per_chunk)
-        if not chunks:
-            return original_content
+    unique_count = len(unique_texts)
+    empty_count = sum(1 for x in block_to_unique if x is None)
+    dedup_saved = total_blocks - unique_count - empty_count
+    print(f"    -> 총 블록: {total_blocks} (고유: {unique_count}, 중복 제거: {dedup_saved})")
 
-        print(f"    -> 청크 수: {len(chunks)} (요청블록 {blocks_per_chunk})")
+    if unique_count == 0:
+        return original_content
 
-        final_blocks: List[str] = []
-        failed_hard = False
+    # ── 1단계: 로컬 처리 ──
+    translated_map: dict = {}
+    unique_list = sorted(unique_texts.items(), key=lambda x: x[1])
+    stats_cache = stats_skip = stats_glossary = 0
+    need_api: List[Tuple[str, int]] = []
 
-        for idx, chunk in enumerate(chunks, start=1):
-            in_blocks = CONTENT_BLOCK_RE.findall(chunk)
-            print(f"      ▶ 청크 번역 ({idx}/{len(chunks)}) - 입력 블록 {len(in_blocks)}개")
+    for text, idx in unique_list:
+        if should_skip_translation(text):
+            translated_map[idx] = text
+            stats_skip += 1
+        elif (cached := cache_get(text)) is not None:
+            translated_map[idx] = cached
+            stats_cache += 1
+        elif (hit := try_glossary_only(text)) is not None:
+            translated_map[idx] = hit
+            cache_put(text, hit)
+            stats_glossary += 1
+        else:
+            need_api.append((text, idx))
 
-            protected_chunk, mapping = protect_escaped_tags(chunk)
-            translated_chunk, status = call_gemini_chunk(protected_chunk, filename, idx, len(chunks), api_key)
+    local_total = stats_cache + stats_skip + stats_glossary
+    print(f"    -> 로컬: 캐시 {stats_cache} + 스킵 {stats_skip} + 글로서리 {stats_glossary} = {local_total}개")
+    print(f"    -> API 필요: {len(need_api)}개")
 
-            if translated_chunk is None:
-                print(f"        ❌ 번역 실패. 원본 유지. 마지막 상태: {status}")
-                with open(log_file, "a", encoding="utf-8") as f:
-                    f.write(f"{filename} | 청크 {idx}/{len(chunks)} | 상태: {status}\n")
-                final_blocks.extend(in_blocks)
-                failed_hard = True
-                continue
+    # ── 2단계: API 호출 ──
+    if need_api:
+        protected_texts = []
+        for text, idx in need_api:
+            protected, mapping = protect_escaped_tags(text)
+            protected_texts.append((idx, protected, mapping, text))
 
-            translated_chunk = restore_escaped_tags(translated_chunk, mapping)
-            translated_chunk = reescape_if_model_unescaped(translated_chunk)
-            translated_chunk = apply_glossary(translated_chunk)  # 용어집 2차 보정
+        for max_tokens in DOWNSHIFT_TOKEN_STEPS:
+            remaining = [x for x in protected_texts if x[0] not in translated_map]
+            if not remaining:
+                break
 
-            out_blocks = CONTENT_BLOCK_RE.findall(translated_chunk)
+            chunks = chunk_by_tokens(remaining, max_tokens)
+            print(f"    -> 청크 수: {len(chunks)} (토큰한도 {max_tokens}, 미번역 {len(remaining)}개)")
 
-            if not out_blocks:
-                print("        ⚠️ 출력에서 content 블록을 찾지 못함. 원본 유지")
-                final_blocks.extend(in_blocks)
-                failed_hard = True
-                continue
+            failed_hard = False
+            for cidx, chunk in enumerate(chunks, start=1):
+                ctokens = sum(estimate_tokens(t) for _, t, _, _ in chunk)
+                print(f"      ▶ 청크 ({cidx}/{len(chunks)}) - {len(chunk)}개 (~{ctokens}토큰)")
 
-            if len(out_blocks) != len(in_blocks):
-                print(f"        ⚠️ 블록 수 불일치: 입력 {len(in_blocks)} / 출력 {len(out_blocks)}. 원본 유지")
-                final_blocks.extend(in_blocks)
-                failed_hard = True
-                continue
+                lines = []
+                for idx, protected, _, _ in chunk:
+                    lines.append(f"{idx}|{protected.replace(chr(10), chr(92) + 'n')}")
 
-            print(f"        -> 성공: 출력 블록 {len(out_blocks)}개 ({status})")
-            final_blocks.extend(out_blocks)
+                raw, status = call_gemini("\n".join(lines), filename, cidx, len(chunks), api_key)
 
-            time.sleep(1.5)
+                if raw is None:
+                    print(f"        ❌ 실패: {status}")
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        f.write(f"{filename} | 청크 {cidx}/{len(chunks)} | {status}\n")
+                    failed_hard = True
+                    continue
 
-        # 이번 시도 결과를 보존 (다음 단계도 실패할 경우를 대비)
-        last_header = header
-        last_footer = footer
-        last_final_blocks = list(final_blocks)
+                parsed = parse_response(raw, len(chunk))
+                if parsed is None:
+                    print(f"        ⚠️ 파싱 실패. 원본 유지")
+                    failed_hard = True
+                    continue
 
-        if not failed_hard:
-            body_text = "\n".join(final_blocks)
-            return f"{header}{body_text}{footer}"
+                ok = 0
+                for idx, _, mapping, orig in chunk:
+                    if idx in parsed:
+                        t = parsed[idx].replace("\\n", "\n")
+                        t = restore_escaped_tags(t, mapping)
+                        t = reescape_if_model_unescaped(t)
+                        t = apply_glossary(t)
+                        translated_map[idx] = t
+                        cache_put(orig, t)
+                        ok += 1
+                print(f"        -> 성공: {ok}/{len(chunk)}개 ({status})")
+                time.sleep(1.5)
 
-        print(f"    -> 다운시프트: 요청 블록 수를 {blocks_per_chunk}로 줄여도 완주 실패. 다음 단계로 진행")
+            if not failed_hard:
+                break
+            print(f"    -> 다운시프트 진행")
 
-    # 모든 다운시프트 단계가 실패해도 부분 번역 결과를 저장
-    if last_final_blocks:
-        print(f"    ⚠️ 최종 실패. 부분 번역 결과라도 저장합니다.")
-        body_text = "\n".join(last_final_blocks)
-        return f"{last_header}{body_text}{last_footer}"
+    # ── 3단계: 최종 조립 ──
+    final_blocks = []
+    for i, (full_block, open_tag, inner, close_tag) in enumerate(all_blocks):
+        uid = block_to_unique[i]
+        if uid is not None and uid in translated_map:
+            final_blocks.append(f"{open_tag}{translated_map[uid]}{close_tag}")
+        else:
+            final_blocks.append(full_block)
 
-    return original_content
+    header = original_content[:matches[0].start()]
+    footer = original_content[matches[-1].end():]
+    done = sum(1 for uid in block_to_unique if uid is not None and uid in translated_map)
+    print(f"    -> 최종: {done}/{total_blocks} 블록 번역 완료")
+
+    return header + "\n".join(final_blocks) + footer
 
 
+# ==========================================
+# [폴더 탐색]
+# ==========================================
 def find_localization_folders(root_path: Path) -> List[Path]:
     return list(root_path.rglob("Localization"))
 
@@ -615,20 +1032,34 @@ def has_korean_folder(loc_path: Path) -> bool:
 def list_source_language_dirs(loc_path: Path) -> List[Path]:
     if not loc_path.exists():
         return []
-
-    src_dirs: List[Path] = []
-    for p in loc_path.iterdir():
-        if not p.is_dir():
-            continue
-        if p.name.lower() == "korean":
-            continue
-        src_dirs.append(p)
-
-    src_dirs.sort(key=lambda x: x.name.lower())
+    src_dirs = [p for p in loc_path.iterdir() if p.is_dir() and p.name.lower() != "korean"]
+    src_dirs.sort(key=lambda x: (0 if x.name.lower() == "english" else 1, x.name.lower()))
     return src_dirs
 
 
-def run(api_key: str, root_folder: str, log_file: str) -> None:
+def is_already_korean(text: str) -> bool:
+    blocks = CONTENT_BLOCK_RE.findall(text)
+    if not blocks:
+        return False
+    inner_text = ""
+    for block in blocks:
+        m = re.search(r">([^<]*)</content>", block, re.IGNORECASE)
+        if m:
+            inner_text += m.group(1)
+    clean = re.sub(r"&[a-zA-Z]+;", "", inner_text)
+    clean = re.sub(r"\s+", "", clean)
+    if len(clean) < 10:
+        return False
+    korean_chars = sum(1 for c in clean if '\uAC00' <= c <= '\uD7A3' or '\u3131' <= c <= '\u318E')
+    return korean_chars / len(clean) >= 0.3
+
+
+# ==========================================
+# [실행]
+# ==========================================
+def run(api_key: str, root_folder: str, log_file: str, cache_file: str) -> None:
+    load_translation_cache(cache_file)
+
     root_path = Path(root_folder)
     print(f"[시작] 루트 경로: {root_path}")
 
@@ -661,45 +1092,59 @@ def run(api_key: str, root_folder: str, log_file: str) -> None:
         korean_path = loc_path / "Korean"
         korean_path.mkdir(parents=True, exist_ok=True)
 
-        for src_dir in src_dirs:
-            xml_files = list(src_dir.glob(INPUT_GLOB))
-            if not xml_files:
+        # English 우선, 첫 번째 언어 폴더만 사용 (중복 번역 방지)
+        src_dir = src_dirs[0]
+        if len(src_dirs) > 1:
+            print(f"    - 언어 폴더 {len(src_dirs)}개. '{src_dir.name}'을 소스로 사용")
+
+        xml_files = list(src_dir.glob(INPUT_GLOB))
+        if not xml_files:
+            print("-" * 50)
+            continue
+
+        print(f"    - 원본 폴더: {src_dir.name} (XML {len(xml_files)}개)")
+
+        for xml_file in xml_files:
+            print(f"    ▶ 파일 처리: {xml_file.name}")
+
+            try:
+                original = xml_file.read_text(encoding="utf-8", errors="strict")
+            except UnicodeDecodeError:
+                original = xml_file.read_text(encoding="utf-8", errors="replace")
+
+            if not original.strip():
+                print("      - 빈 파일. 스킵")
                 continue
 
-            print(f"    - 원본 폴더: {src_dir.name} (XML {len(xml_files)}개)")
+            if is_already_korean(original):
+                print("      - 이미 한글화된 파일. 스킵")
+                continue
 
-            for xml_file in xml_files:
-                print(f"    ▶ 파일 처리: {xml_file.name}")
+            translated = process_xml_file(original, xml_file.name, api_key, log_file)
 
-                try:
-                    original = xml_file.read_text(encoding="utf-8", errors="strict")
-                except UnicodeDecodeError:
-                    original = xml_file.read_text(encoding="utf-8", errors="replace")
-
-                if not original.strip():
-                    print("      - 빈 파일. 스킵")
-                    continue
-
-                translated = process_xml_file(original, xml_file.name, api_key, log_file)
-
-                out_file = korean_path / xml_file.name
-                out_file.write_text(translated, encoding="utf-8")
-                print(f"      ✅ 저장 완료: {out_file}")
+            out_file = korean_path / xml_file.name
+            out_file.write_text(translated, encoding="utf-8")
+            print(f"      ✅ 저장 완료: {out_file}")
 
         print("-" * 50)
+
+    save_translation_cache(cache_file)
+    cache = load_translation_cache(cache_file)
+    print(f"\n💾 번역 캐시: {len(cache)}개 항목 저장됨")
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("   BG3 모드 자동 한글화 스크립트")
+    print("   BG3 모드 자동 한글화 스크립트 v2.0")
     print("=" * 60)
     print()
 
-    api_key, root_folder, log_file = setup_config()
+    api_key, root_folder, log_file, cache_file = setup_config()
 
     print(f"  API 키  : {api_key[:8]}...{api_key[-4:]} (확인용 앞뒤 일부만 표시)")
     print(f"  대상 경로: {root_folder}")
     print(f"  로그 파일: {log_file}")
+    print(f"  캐시 파일: {cache_file}")
     print()
     print("  위 설정으로 한글화를 시작합니다.")
     print("  (취소하려면 지금 창을 닫으세요)")
@@ -707,7 +1152,7 @@ if __name__ == "__main__":
     input("  엔터를 누르면 시작합니다... ")
     print()
 
-    run(api_key, root_folder, log_file)
+    run(api_key, root_folder, log_file, cache_file)
 
     print("\n--- 작업 종료 ---")
     input("엔터 키를 누르면 종료합니다.")

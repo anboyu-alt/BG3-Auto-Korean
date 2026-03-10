@@ -150,7 +150,7 @@ C:\Mods\
 
 이 `_Korean.pak`을 모드 매니저(Vortex, BG3 Mod Manager)로 설치하면 끝!
 
-> 폴더 경로를 지정하면 안에 있는 모든 `.pak`을 한번에 처리합니다.
+> **여러 모드 한번에 한글화하기:** `.pak` 파일 하나가 아니라 **폴더 경로**를 지정하면, 그 안에 있는 모든 `.pak`을 자동으로 찾아서 한번에 처리합니다. 한글화할 모드를 한 폴더에 모아놓고 그 폴더 경로를 지정하세요.
 
 ---
 
@@ -196,6 +196,15 @@ Localization/
 ### 5. Multitool로 리팩 후 설치
 
 Multitool의 "Pack" 기능으로 다시 `.pak`으로 묶은 후 모드 매니저로 설치합니다.
+
+> **여러 모드 한번에 한글화하기:** 여러 모드를 Multitool로 언팩해놓았다면, **상위 폴더 경로**를 `TARGET_ROOT_FOLDER`에 지정하세요. 스크립트가 하위 폴더를 자동으로 탐색하여 `Localization` 폴더가 있는 모드를 모두 찾아 한번에 번역합니다.
+>
+> ```
+> UnpackedMods/                ← 이 경로를 지정하면
+> ├── ModA/.../Localization/   ← 자동 탐색 → 번역
+> ├── ModB/.../Localization/   ← 자동 탐색 → 번역
+> └── ModC/.../Localization/Korean/  ← 이미 한글화됨 → 스킵
+> ```
 
 ---
 

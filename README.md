@@ -1,346 +1,274 @@
-# BG3 모드 자동 한글화 스크립트
+# BG3 모드 자동 한글화 스크립트 v2.1
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를
 Google Gemini AI를 이용하여 자동으로 한국어로 번역해주는 스크립트입니다.
 
 ---
 
-## 🆕 업데이트 이력
+## 한글화의 원리
 
-### v2.1 / v3.1 (2025.03)
+BG3 모드의 텍스트는 모드 파일(`.pak`) 안에 아래와 같은 구조로 들어있습니다:
 
-단어형 텍스트(주문 이름 등)가 번역되지 않고 영어로 남던 버그를 수정했습니다.
+```
+SomeMod.pak (모드 파일)
+└── Mods/
+    └── SomeMod/
+        └── Localization/        ← 여기가 언어 파일이 모여있는 곳
+            └── English/         ← 영어 원문
+                └── SomeMod.xml  ← 실제 텍스트가 들어있는 XML 파일
+```
 
-- **번역 스킵 패턴 수정**: `Fireball`, `Bless` 등 일반 영단어가 코드성 상수(`STRENGTH`, `DEX_MOD`)와 함께 번역에서 제외되던 문제 해결
-- 두 버전 모두 동일하게 적용
+XML 파일을 열어보면 이런 식입니다:
 
-### v2.0 / v3.0 (2025.03)
+```xml
+<content contentuid="h12345">This spell deals 2d6 fire damage.</content>
+<content contentuid="h12346">Fireball</content>
+```
 
-v3.0에서 **pak 직접 처리 버전**(`BG3_AutoKorean_Pak.py`)이 추가되었습니다.
-기존 폴더 모드(`BG3_AutoKorean.py`)도 그대로 사용 가능합니다.
+**이 스크립트가 하는 일:**
+1. `English` 폴더 안의 XML을 읽어서
+2. `<content>` 태그 안의 텍스트를 Gemini AI로 한국어 번역하고
+3. 번역된 XML을 `Korean` 폴더에 저장합니다
 
-- **pak 직접 모드 추가**: `.pak` 파일을 넣으면 언팩 → 번역 → 리팩까지 전자동 처리
-- **다중 pak 일괄 처리**: 폴더를 지정하면 안에 있는 모든 `.pak` 파일을 한번에 번역
-- **BG3 Modder's Multitool 불필요** (pak 모드 사용 시): LSLib의 `divine.exe`로 대체
-- **번역 캐시**: JSON 캐시 파일로 이미 번역한 텍스트 재사용
-- **경량 API 포맷**: 텍스트만 추출하여 토큰 절감
-- **용어집 확장**: 350개+ (종족, 능력치, 상태이상, 피해유형, 기술 등)
-- **로컬 선처리**: 숫자/코드/용어집 매칭은 API 없이 즉시 처리
-- **중복 제거**: 동일 텍스트 자동 제거 후 한 번만 번역
+```
+Localization/
+├── English/         ← 원본 (절대 수정하지 않음)
+│   └── SomeMod.xml
+└── Korean/          ← 번역 결과 (스크립트가 자동 생성)
+    └── SomeMod.xml
+```
 
-### 버전 대응표
+BG3는 게임 설정에서 언어를 "한국어"로 바꾸면 자동으로 `Korean` 폴더의 파일을 읽습니다.
+그래서 `Korean` 폴더에 번역된 파일만 넣어주면 한글화가 되는 것입니다.
 
-| 폴더 모드 (`BG3_AutoKorean.py`) | pak 모드 (`BG3_AutoKorean_Pak.py`) | 내용 |
-|------|------|------|
-| v2.1 | v3.1 | 단어형 텍스트 번역 스킵 버그 수정 |
-| v2.0 | v3.0 | 번역 엔진 개선 + pak 직접 모드 추가 |
-| v1.0 | — | 최초 배포 |
+이 원리를 이해하면 코드를 자신의 환경에 맞게 수정하기도 쉬워집니다.
 
 ---
 
-## 📊 두 버전 비교
+## 두 버전의 차이: "방식"이 다를 뿐, "기능"은 같습니다
 
-| 항목 | `BG3_AutoKorean.py` (폴더 모드) | `BG3_AutoKorean_Pak.py` (pak 직접 모드) |
-|------|------|------|
-| **작업 방식** | 이미 언팩된 폴더를 번역 | `.pak` 파일을 직접 처리 (언팩→번역→리팩 자동) |
-| **필요 프로그램** | Python + BG3 Modder's Multitool | Python + LSLib(divine.exe) + .NET 8.0 |
-| **작업 단계** | 5단계 (언팩 → 번역 → 리팩 → 설치) | 2단계 (스크립트 실행 → 설치) |
-| **자동화 수준** | 번역만 자동, 언팩/리팩은 수동 | 전자동 (언팩부터 리팩까지) |
-| **다중 pak 처리** | 불가 (하나씩 수동 처리) | 폴더 지정 시 일괄 처리 |
-| **출력 결과** | `Korean` 폴더 생성 (리팩은 직접) | `원본이름_Korean.pak` 파일 자동 생성 |
-| **권장 대상** | Multitool을 이미 사용 중인 분 | 신규 사용자 / 편의를 원하는 분 |
-| **번역 엔진** | 동일 (v2.0 엔진) | 동일 (v2.0 엔진) |
+이 프로젝트에는 두 개의 파일이 있습니다:
 
-> 💡 **어떤 버전을 선택해야 할까요?**
-> - 처음 사용하시거나 간편한 방법을 원하시면 → **pak 직접 모드** (`BG3_AutoKorean_Pak.py`)
-> - BG3 Modder's Multitool을 이미 설치하여 사용 중이시면 → **폴더 모드** (`BG3_AutoKorean.py`)
+| 파일 | 설명 |
+|------|------|
+| `BG3_AutoKorean_Folder_v2.1.py` | **폴더 모드** — 이미 풀어놓은 모드 폴더를 번역 |
+| `BG3_AutoKorean_PAK_v2.1.py` | **PAK 모드** — .pak 파일을 넣으면 전자동 처리 |
 
----
+두 파일의 **번역 엔진은 완전히 동일**합니다.
+용어집, 캐시, AI 호출 방식, 번역 품질 전부 같습니다.
 
-## 🛠️ 사전 준비
+**유일한 차이는 "번역 전후 작업을 어떤 도구로 처리하느냐"입니다:**
 
-### 공통 필수
+- **PAK 모드**: `.pak` 파일을 넣으면 `divine.exe`(LSLib)가 자동으로 풀고(언팩) → 번역하고 → 다시 묶어줍니다(리팩). 한 번에 끝!
+- **폴더 모드**: 사용자가 직접 BG3 Modder's Multitool로 `.pak`을 풀어서 폴더를 만든 다음, 이 스크립트로 번역만 수행합니다. 리팩(다시 묶기)도 직접 해야 합니다.
 
-#### 1. Python (스크립트 실행용)
-- [https://www.python.org/downloads/](https://www.python.org/downloads/) 에서 다운로드
-- 설치 시 **"Add Python to PATH"** 옵션을 반드시 체크
+### 어떤 버전을 선택해야 할까요?
 
-#### 2. Gemini API 키 (번역 엔진용, 무료 발급)
-- [https://aistudio.google.com](https://aistudio.google.com) 접속
-- Google 계정으로 로그인
-- 왼쪽 메뉴에서 **"Get API key"** 클릭
-- **"Create API key"** 버튼 클릭
-- 생성된 키(`AIzaSy...`로 시작)를 복사해 둡니다
-
-> ⚠️ API 키는 타인에게 공유하지 마세요. 무단 사용 시 본인 계정에 요금이 부과될 수 있습니다.
+- **처음 사용하시거나 편한 방법을 원하시면** → `BG3_AutoKorean_PAK_v2.1.py` (PAK 모드)
+- **BG3 Modder's Multitool을 이미 쓰고 계시면** → `BG3_AutoKorean_Folder_v2.1.py` (폴더 모드)
 
 ---
 
-### pak 직접 모드 전용 (`BG3_AutoKorean_Pak.py`)
+## 사전 준비
 
-#### 3-A. LSLib (ExportTool) 다운로드
+### 공통 (두 버전 모두 필요)
 
-1. [https://github.com/Norbyte/lslib/releases](https://github.com/Norbyte/lslib/releases) 접속
-2. 최신 버전의 **`ExportTool-vX.X.X.zip`** 파일을 다운로드
-3. 압축 해제
-4. `Divine.exe` 위치 확인:
+**1. Python 설치**
+- [python.org/downloads](https://www.python.org/downloads/) 에서 다운로드
+- 설치할 때 **"Add Python to PATH"** 옵션을 반드시 체크하세요
 
-```
-ExportTool-v1.20.4/
-└── Packed/
-    └── Tools/
-        └── Divine.exe   ← 이 경로를 스크립트에 입력
-```
+**2. Gemini API 키 발급 (무료)**
+1. [aistudio.google.com](https://aistudio.google.com) 접속 (Google 계정 필요)
+2. 왼쪽 메뉴에서 **"Get API key"** 클릭
+3. **"Create API key"** 버튼 클릭
+4. 생성된 키(`AIzaSy...`로 시작)를 복사해 둡니다
 
-#### 3-B. .NET 8.0 런타임 설치
+> API 키는 타인에게 공유하지 마세요.
 
-`Divine.exe`를 실행하려면 .NET 8.0 런타임이 필요합니다.
-이미 설치되어 있다면 이 단계를 건너뛰세요.
+### PAK 모드 전용 — 추가로 필요한 것
 
-- [https://dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0) 접속
-- **".NET Desktop Runtime"** 다운로드 후 설치
+**3. LSLib (ExportTool) 다운로드**
+1. [github.com/Norbyte/lslib/releases](https://github.com/Norbyte/lslib/releases) 에서 `ExportTool-vX.X.X.zip` 다운로드
+2. 압축 해제
+3. `Divine.exe` 위치: `ExportTool폴더/Packed/Tools/Divine.exe`
 
-> 💡 .NET 8.0이 없는 상태에서 `Divine.exe`를 실행하면 설치 안내가 자동으로 뜹니다.
+**4. .NET 8.0 런타임**
+- `Divine.exe` 실행에 필요합니다
+- [dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0) → ".NET Desktop Runtime" 설치
+- 이미 설치되어 있으면 이 단계를 건너뛰세요
+
+### 폴더 모드 전용 — 추가로 필요한 것
+
+**3. BG3 Modder's Multitool**
+- [github.com/ShinyHobo/BG3-Modders-Multitool](https://github.com/ShinyHobo/BG3-Modders-Multitool) 에서 다운로드
 
 ---
 
-### 폴더 모드 전용 (`BG3_AutoKorean.py`)
+## 사용법: PAK 모드 (`BG3_AutoKorean_PAK_v2.1.py`)
 
-#### 3. BG3 Modder's Multitool (pak 파일 압축/해제용)
-- [https://github.com/ShinyHobo/BG3-Modders-Multitool](https://github.com/ShinyHobo/BG3-Modders-Multitool) 에서 다운로드
-- Releases 탭에서 최신 버전 다운로드 후 압축 해제
+가장 간단한 방법입니다. `.pak` 파일만 있으면 됩니다.
 
----
-
-## 📖 사용법 A: pak 직접 모드 (`BG3_AutoKorean_Pak.py`)
-
-### 전체 작업 흐름
+### 단계 요약
 
 ```
-모드 다운로드(.zip)
-    → 압축 해제 → .pak 파일 획득
-        → BG3_AutoKorean_Pak.py 실행 (언팩 → 번역 → 리팩 전자동)
-            → 생성된 _Korean.pak 파일을 모드 매니저로 설치
+.pak 파일 준비 → 스크립트 실행 → _Korean.pak 생성 → 모드 매니저로 설치
 ```
 
-### 1단계: 모드 파일 준비
+### 1. 모드 파일 준비
 
-1. 한글화할 모드를 다운로드합니다 (보통 `.zip` 형태로 배포)
-2. 압축을 해제하면 `.pak` 확장자 파일이 나옵니다
+한글화할 모드를 다운로드하면 보통 `.zip` 안에 `.pak` 파일이 있습니다.
 
-```
-다운로드한 파일 예시:
-  SomeMod_v1.0.zip
-    └── SomeMod.pak   ← 이 파일의 경로를 기억해두세요
-```
+### 2. 설정
 
-### 2단계: 설정 및 실행
-
-`BG3_AutoKorean_Pak.py`를 메모장이나 텍스트 편집기로 열고
-**[설정 구간]** 부분을 수정합니다.
+`BG3_AutoKorean_PAK_v2.1.py`를 메모장으로 열어서 **[설정 구간]**을 수정합니다:
 
 ```python
-# ==========================================
-# [설정 구간] ← 여기를 수정하세요
-# ==========================================
-
 API_KEY = "여기에 발급받은 API 키 붙여넣기"
-
 DIVINE_EXE = r"C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe"
-
 TARGET_PAK = r"C:\Mods\SomeMod.pak"
-# 폴더를 지정하면 안의 모든 .pak을 한번에 처리:
-# TARGET_PAK = r"C:\Mods"
 ```
 
-> 💡 경로 앞에 `r`을 붙이고 큰따옴표로 감싸야 `\`(역슬래시)가 올바르게 인식됩니다.
+> 경로 앞에 `r`을 붙이고 큰따옴표로 감싸세요. (예: `r"C:\경로\파일"`)
+>
+> 세 값을 모두 비워두면 실행할 때 하나씩 입력할 수 있습니다.
 
-설정을 비워두면 실행 시 직접 입력하는 창이 나타납니다.
+### 3. 실행
 
-#### 실행
+`BG3_AutoKorean_PAK_v2.1.py`를 **더블클릭**하거나 터미널에서 실행:
+```
+python BG3_AutoKorean_PAK_v2.1.py
+```
 
-- `BG3_AutoKorean_Pak.py`를 **더블클릭**
-- 또는 터미널에서: `python BG3_AutoKorean_Pak.py`
+### 4. 결과
 
-설정 확인 화면에서 내용을 확인하고 **엔터**를 누르면 번역이 시작됩니다.
-
-### 3단계: 결과 확인 및 설치
-
-번역이 완료되면 원본 `.pak`과 같은 폴더에 `_Korean.pak` 파일이 생성됩니다.
-
+원본 `.pak`과 같은 폴더에 `_Korean.pak`이 생성됩니다:
 ```
 C:\Mods\
 ├── SomeMod.pak            ← 원본 (변경 없음)
 └── SomeMod_Korean.pak     ← 한글화된 모드 (자동 생성)
 ```
 
-생성된 `_Korean.pak` 파일을 모드 매니저(Vortex 또는 BG3 Mod Manager)로 설치합니다.
+이 `_Korean.pak`을 모드 매니저(Vortex, BG3 Mod Manager)로 설치하면 끝!
 
-> 💡 **다중 pak 처리**: 폴더를 지정하면 안에 있는 모든 `.pak` 파일이 한번에 처리됩니다.
-> 이미 `_Korean.pak`이 존재하는 파일은 자동으로 스킵합니다.
+> 폴더 경로를 지정하면 안에 있는 모든 `.pak`을 한번에 처리합니다.
 
 ---
 
-## 📖 사용법 B: 폴더 모드 (`BG3_AutoKorean.py`)
+## 사용법: 폴더 모드 (`BG3_AutoKorean_Folder_v2.1.py`)
 
-### 전체 작업 흐름
+BG3 Modder's Multitool로 이미 `.pak`을 풀어놓은 경우에 사용합니다.
 
-```
-모드 다운로드(.zip)
-    → 압축 해제 → .pak 파일 획득
-        → BG3 Modder's Multitool로 .pak 언팩
-            → BG3_AutoKorean.py 실행 (한글화)
-                → BG3 Modder's Multitool로 .pak 재압축
-                    → 모드 매니저로 설치
-```
-
-### 1단계: 모드 파일 준비
-
-1. 한글화할 모드를 다운로드합니다 (보통 `.zip` 형태로 배포)
-2. 압축을 해제하면 `.pak` 확장자 파일이 나옵니다
-
-### 2단계: BG3 Modder's Multitool로 pak 파일 언팩
-
-1. **BG3 Modder's Multitool**을 실행합니다
-2. 상단 메뉴에서 **"Utilities"** 클릭
-3. **"Unpack Game"** 또는 드래그 앤 드롭으로 `.pak` 파일을 불러옵니다
-4. 언팩이 완료되면 같은 폴더 또는 지정한 폴더에 모드 폴더가 생성됩니다
+### 단계 요약
 
 ```
-언팩 결과 예시:
-  bg3-modders-multitool/
-  └── UnpackedMods/
-      └── SomeMod/
-          └── Localization/
-              └── English/
-                  └── SomeMod.xml   ← 번역 대상 파일
+.pak 언팩(Multitool) → 스크립트 실행 → Korean 폴더 생성 → 리팩(Multitool) → 설치
 ```
 
-> 💡 언팩된 폴더의 경로를 기억해두세요. 다음 단계에서 입력해야 합니다.
+### 1. Multitool로 .pak 언팩
 
-### 3단계: BG3_AutoKorean.py 설정 및 실행
+BG3 Modder's Multitool의 "Unpack" 기능으로 `.pak` 파일을 풀어줍니다.
 
-`BG3_AutoKorean.py`를 메모장이나 텍스트 편집기로 열고
-**[설정 구간]** 부분을 수정합니다.
+### 2. 설정
+
+`BG3_AutoKorean_Folder_v2.1.py`를 메모장으로 열어서 **[설정 구간]**을 수정합니다:
 
 ```python
-# ==========================================
-# [설정 구간] ← 여기를 수정하세요
-# ==========================================
-
 API_KEY = "여기에 발급받은 API 키 붙여넣기"
-
 TARGET_ROOT_FOLDER = r"C:\경로\bg3-modders-multitool"
-# 예시: r"C:\Users\홍길동\Downloads\bg3-modders-multitool"
 ```
 
-> 💡 경로 앞에 `r`을 붙이고 큰따옴표로 감싸야 `\`(역슬래시)가 올바르게 인식됩니다.
+### 3. 실행
 
-설정을 비워두면 실행 시 직접 입력하는 창이 나타납니다.
-
-#### 실행
-
-- `BG3_AutoKorean.py`를 **더블클릭**
-- 또는 터미널에서: `python BG3_AutoKorean.py`
-
-설정 확인 화면에서 내용을 확인하고 **엔터**를 누르면 번역이 시작됩니다.
-
-### 4단계: 번역 결과 확인
-
-번역이 완료되면 `Localization` 폴더 안에 `Korean` 폴더가 자동 생성됩니다.
-
+`BG3_AutoKorean_Folder_v2.1.py`를 **더블클릭**하거나 터미널에서 실행:
 ```
-SomeMod/
-└── Localization/
-    ├── English/          ← 원본 (변경 없음)
-    │   └── SomeMod.xml
-    └── Korean/           ← 번역 결과 (자동 생성)
-        └── SomeMod.xml
+python BG3_AutoKorean_Folder_v2.1.py
 ```
 
-### 5단계: BG3 Modder's Multitool로 pak 재압축
+### 4. 결과 확인
 
-1. **BG3 Modder's Multitool**을 실행합니다
-2. 번역이 완료된 모드 폴더(`Korean` 폴더가 생긴 상태)를 다시 불러옵니다
-3. **"Pack"** 기능으로 재압축하면 `.zip` 파일이 생성됩니다
+`Localization` 폴더 안에 `Korean` 폴더가 자동 생성됩니다:
+```
+Localization/
+├── English/         ← 원본
+└── Korean/          ← 번역 결과 (자동 생성)
+```
 
-> 💡 이 `.zip` 파일은 **Vortex**, **BG3 Mod Manager** 등
-> 모드 매니저에서 바로 설치 가능한 형태입니다.
+### 5. Multitool로 리팩 후 설치
 
-### 6단계: 모드 매니저로 설치
-
-생성된 `.zip` 파일을 모드 매니저(Vortex 또는 BG3 Mod Manager)로 설치합니다.
+Multitool의 "Pack" 기능으로 다시 `.pak`으로 묶은 후 모드 매니저로 설치합니다.
 
 ---
 
-## 📝 번역 실패 로그
+## 주요 기능
 
-번역 중 일부 구간이 실패하면 스크립트와 같은 폴더에
-`translation_errors.txt` 파일이 생성됩니다.
-
-```
-SomeMod.xml | 청크 2/5 | 상태: 429 wait 40s (gemini-2.5-flash-lite)
-```
+- **AI 번역**: Google Gemini를 이용한 고품질 번역
+- **용어집 350개+**: 캐릭터명, 능력치, 주문명, 상태이상 등 BG3 고유 용어를 정확하게 번역
+- **번역 캐시**: 한 번 번역한 텍스트는 `translation_cache.json`에 저장하여 재사용
+- **로컬 선처리**: 숫자, 코드, 이미 한국어인 텍스트는 API 호출 없이 즉시 처리
+- **중복 제거**: 같은 텍스트가 여러 번 나오면 한 번만 번역
+- **태그 보호**: XML 태그가 번역 중 깨지지 않도록 자동 보호 및 복원
+- **다중 모델 폴백**: 1순위 모델 실패 시 자동으로 다른 모델로 재시도
 
 ---
 
-## ❓ 자주 묻는 질문
+## 코드 수정 가이드
 
-### 공통
+이 스크립트는 자유롭게 수정해서 사용하셔도 됩니다. 코드 안에 각 섹션마다 설명이 달려 있으니 참고하세요.
 
-**Q. "429 제한" 메시지가 자주 뜨는 경우**
-Gemini 무료 플랜의 분당 요청 한도에 도달한 것입니다.
-스크립트가 자동으로 대기 후 재시도하므로 그냥 기다리면 됩니다.
+**수정하기 좋은 부분:**
 
-**Q. 번역 후에도 일부 영어가 남아있는 경우**
-`translation_errors.txt`에서 어느 파일이 실패했는지 확인하세요.
-해당 모드를 재번역하면 됩니다. (아래 "재번역 방법" 참고)
+| 섹션 | 설명 |
+|------|------|
+| `[설정 구간]` | API 키, 경로 등 기본 설정 |
+| `[용어집]` | 고유명사 번역 추가/수정 (GLOSSARY 딕셔너리) |
+| `[고급 설정]` | AI 모델 변경, 청크 크기 조정 |
+| `[번역 파이프라인]` | 번역 로직 자체를 바꾸고 싶을 때 |
+| `[divine.exe 연동]` | 언팩/리팩 옵션 변경 (PAK 모드만) |
 
-**Q. 영어가 아닌 다른 언어(포르투갈어 등)로 된 모드도 되나요?**
-됩니다. 스크립트가 원본 언어에 관계없이 한국어로 번역합니다.
+---
 
-**Q. 번역 캐시 파일은 어디에 있나요?**
-스크립트와 같은 폴더에 `translation_cache.json`으로 자동 생성됩니다.
-이전에 번역한 텍스트가 저장되어 있어, 재실행 시 동일한 텍스트는 API 호출 없이 바로 적용됩니다.
+## 자주 묻는 질문
+
+**Q. "429 제한" 메시지가 자주 뜹니다**
+Gemini 무료 플랜의 분당 요청 한도입니다. 스크립트가 자동으로 대기 후 재시도하므로 기다리면 됩니다.
+
+**Q. 번역 후에도 일부 영어가 남아있습니다**
+`translation_errors.txt`에서 실패한 파일을 확인하고 재번역하세요.
+
+**Q. 영어가 아닌 다른 언어 모드도 되나요?**
+됩니다. 어떤 언어든 한국어로 번역합니다.
 
 **Q. 캐시를 초기화하고 싶어요**
 `translation_cache.json` 파일을 삭제하면 됩니다.
-다음 실행부터 모든 텍스트를 새로 번역합니다.
 
-### pak 직접 모드 (`BG3_AutoKorean_Pak.py`)
+**Q. 재번역하고 싶어요**
+- PAK 모드: `_Korean.pak` 파일을 삭제하고 다시 실행
+- 폴더 모드: `Korean` 폴더를 삭제하고 다시 실행
 
-**Q. 이미 한글화한 모드를 재번역하고 싶어요**
-기존에 생성된 `_Korean.pak` 파일을 삭제하고 스크립트를 다시 실행하세요.
-
-**Q. pak 파일이 여러 개인 경우**
-`TARGET_PAK`에 폴더 경로를 지정하면 안의 모든 `.pak` 파일이 한번에 처리됩니다.
-이미 `_Korean.pak`이 존재하는 파일은 자동으로 건너뜁니다.
-
-**Q. Divine.exe 실행 시 오류가 나는 경우**
+**Q. Divine.exe 실행 시 오류가 나요**
 .NET 8.0 런타임이 설치되어 있는지 확인하세요.
-→ [https://dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0)
-→ ".NET Desktop Runtime" 설치
-
-**Q. 임시 파일은 어디에 생기나요?**
-스크립트와 같은 폴더에 `_pak_temp/` 폴더가 생성되며, 각 pak 처리 완료 후 자동으로 정리됩니다.
-
-### 폴더 모드 (`BG3_AutoKorean.py`)
-
-**Q. 이미 한글화한 모드를 재번역하고 싶어요**
-해당 모드의 `Korean` 폴더를 삭제한 후 스크립트를 다시 실행하세요.
-
-**Q. pak 파일이 여러 개인 경우**
-pak 파일마다 개별적으로 언팩 → 번역 → 재압축을 반복하면 됩니다.
-여러 pak을 한번에 처리하고 싶다면 pak 직접 모드(`BG3_AutoKorean_Pak.py`)를 사용하세요.
 
 ---
 
-## ⚠️ 주의사항
+## 업데이트 이력
 
-- 번역 결과는 AI가 생성한 것으로 오역이 포함될 수 있습니다
-- 모드 원본 파일은 수정되지 않습니다
-  - 폴더 모드: `Korean` 폴더에만 결과 저장
-  - pak 모드: `_Korean.pak` 파일로 별도 생성
-- API 키를 타인과 공유하거나 인터넷에 업로드하지 마세요
-- BG3 Modder's Multitool 사용법: [https://github.com/ShinyHobo/BG3-Modders-Multitool](https://github.com/ShinyHobo/BG3-Modders-Multitool)
-- LSLib (ExportTool) 사용법: [https://github.com/Norbyte/lslib](https://github.com/Norbyte/lslib)
+### v2.1 (2025.03)
+- 파일명 변경: 버전과 모드를 파일명에 명시하여 구분 용이
+- 단어형 텍스트(주문 이름 등) 번역 스킵 버그 수정
+- 코드 주석 대폭 보강 (수정 가이드 역할)
+
+### v2.0 (2025.03)
+- PAK 직접 모드 추가 (divine.exe 기반 전자동 처리)
+- 번역 캐시, 경량 API 포맷, 용어집 350개+ 확장
+- 로컬 선처리, 중복 제거 등 성능 개선
+
+### v1.0
+- 최초 배포
+
+---
+
+## 주의사항
+
+- 번역 결과는 AI가 생성한 것이므로 오역이 포함될 수 있습니다
+- 모드 원본 파일은 절대 수정되지 않습니다
+- API 키를 인터넷에 업로드하지 마세요

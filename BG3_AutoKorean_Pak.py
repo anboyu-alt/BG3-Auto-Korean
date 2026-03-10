@@ -582,11 +582,10 @@ _SKIP_PATTERNS = re.compile(
     r"^("
     r"\d+[\d.,/%+\-*x ]*"
     r"|[+\-]\d+.*"
-    r"|\d+d\d+.*"
+    r"|\d+[dD]\d+.*"
     r"|[A-Z_]{2,}"
     r"|<[^>]+>"
-    r")$",
-    re.IGNORECASE
+    r")$"
 )
 
 

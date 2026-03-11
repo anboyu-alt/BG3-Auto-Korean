@@ -1167,6 +1167,14 @@ def run(api_key: str, root_folder: str, log_file: str, cache_file: str) -> None:
 
         xml_files = list(src_dir.glob(INPUT_GLOB))
         if not xml_files:
+            # .loca 바이너리 파일이 있는지 확인 (divine.exe로 풀었을 경우)
+            loca_files = list(src_dir.glob("*.loca"))
+            if loca_files:
+                print(f"    ⚠️ .loca 바이너리 파일 {len(loca_files)}개 발견!")
+                print(f"      .loca는 바이너리 형식이라 직접 번역할 수 없습니다.")
+                print(f"      해결 방법:")
+                print(f"        1) PAK 모드(BG3_AutoKorean_PAK_v2.1.py)를 사용하세요 (자동 변환)")
+                print(f"        2) 또는 Multitool로 다시 추출하세요 (.loca.xml로 자동 변환됨)")
             print("-" * 50)
             continue
 

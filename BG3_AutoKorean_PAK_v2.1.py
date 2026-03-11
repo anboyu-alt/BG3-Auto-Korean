@@ -1142,6 +1142,37 @@ def divine_extract(divine_path: str, pak_path: Path, dest_folder: Path) -> bool:
         return False
 
 
+def convert_loca_to_xml(divine_path: str, unpacked_path: Path) -> int:
+    """
+    언팩된 폴더의 Localization 안에 있는 .loca 바이너리 파일을 XML로 변환한다.
+    일부 모드는 텍스트를 .loca (바이너리) 형식으로 저장하므로,
+    divine.exe의 convert-loca 기능으로 XML 변환 후 번역한다.
+    변환된 파일 수를 반환한다.
+    """
+    loca_files = list(unpacked_path.rglob("*.loca"))
+    converted = 0
+    for loca_file in loca_files:
+        # Localization 폴더 안의 .loca 파일만 변환
+        if "localization" not in str(loca_file).lower():
+            continue
+        xml_out = loca_file.with_suffix(".loca.xml")
+        cmd = [
+            divine_path,
+            "-g", "bg3",
+            "-a", "convert-loca",
+            "-s", str(loca_file),
+            "-d", str(xml_out),
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0 and xml_out.exists():
+                loca_file.unlink()  # 원본 .loca 바이너리 삭제
+                converted += 1
+        except Exception:
+            pass
+    return converted
+
+
 def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bool:
     """divine.exe로 폴더를 pak으로 리팩한다."""
     output_pak.parent.mkdir(parents=True, exist_ok=True)
@@ -1213,7 +1244,20 @@ def translate_unpacked_mod(unpacked_path: Path, api_key: str, log_file: str) -> 
             print(f"       언어 폴더 {len(src_dirs)}개. '{src_dir.name}'을 소스로 사용")
 
         xml_files = list(src_dir.glob(INPUT_GLOB))
+        # INPUT_GLOB(*.xml)로 못 찾으면 .loca.xml, .lsx 등도 시도
         if not xml_files:
+            for fallback_glob in ["*.loca.xml", "*.lsx", "*.loca"]:
+                xml_files = list(src_dir.glob(fallback_glob))
+                if xml_files:
+                    break
+        if not xml_files:
+            # 진단용: 폴더 안에 실제로 어떤 파일이 있는지 출력
+            all_files = list(src_dir.iterdir())
+            if all_files:
+                names = [f.name for f in all_files[:10]]
+                print(f"       ⚠️ {src_dir.name} 폴더에 XML 파일 없음. 발견된 파일: {names}")
+            else:
+                print(f"       ⚠️ {src_dir.name} 폴더가 비어있음")
             continue
 
         print(f"       원본 폴더: {src_dir.name} (XML {len(xml_files)}개)")
@@ -1266,6 +1310,11 @@ def process_pak_file(pak_path: Path, divine_path: str,
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         return False
+
+    # .loca 바이너리 → XML 변환 (일부 모드는 .loca 형식 사용)
+    loca_count = convert_loca_to_xml(divine_path, temp_dir)
+    if loca_count > 0:
+        print(f"  🔄 .loca → XML 변환: {loca_count}개 파일")
 
     # 번역
     print(f"  🔄 번역 시작...")

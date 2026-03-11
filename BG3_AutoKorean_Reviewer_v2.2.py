@@ -1,12 +1,12 @@
 # ==========================================
-# BG3 모드 번역 검수 도구 v2.1
+# BG3 모드 번역 검수 도구 v2.2
 # ==========================================
 # AI가 번역한 결과물을 영어 원문과 나란히 비교하면서
 # 오역을 찾아 수정할 수 있는 도구입니다.
 #
 # 사용법:
 #   1. 아래 [설정 구간]에서 DIVINE_EXE와 TARGET_PAK 경로를 지정
-#   2. 더블클릭 또는 python BG3_AutoKorean_Reviewer_v2.1.py 실행
+#   2. 더블클릭 또는 python BG3_AutoKorean_Reviewer_v2.2.py 실행
 #   3. 영어/한국어를 비교하면서 수정이 필요한 항목만 고치기
 #   4. 's'를 눌러 저장하면 수정된 pak 파일이 생성됩니다
 #
@@ -26,8 +26,8 @@
 #   - .NET 8.0 런타임
 #
 # 함께 사용하는 파일:
-#   - BG3_AutoKorean_PAK_v2.1.py (번역 도구 — pak 모드)
-#   - BG3_AutoKorean_Folder_v2.1.py (번역 도구 — 폴더 모드)
+#   - BG3_AutoKorean_PAK_v2.2.py (번역 도구 — pak 모드)
+#   - BG3_AutoKorean_Folder_v2.2.py (번역 도구 — 폴더 모드)
 # ==========================================
 
 import os
@@ -312,7 +312,7 @@ def display_entry(entry: Entry, index: int, total: int,
     mod_mark = " *수정됨*" if entry.modified else ""
 
     print(bar)
-    print(f"  번역 검수 도구 v2.1  |  {filename}  |  {index + 1} / {total}{filter_mark}")
+    print(f"  번역 검수 도구 v2.2  |  {filename}  |  {index + 1} / {total}{filter_mark}")
     print(f"  수정된 항목: {modified_count}개{mod_mark}")
     print(bar)
     print()
@@ -665,7 +665,7 @@ def setup_config() -> Tuple[str, str]:
 # ==========================================
 if __name__ == "__main__":
     print("=" * 60)
-    print("   BG3 모드 번역 검수 도구 v2.1")
+    print("   BG3 모드 번역 검수 도구 v2.2")
     print("=" * 60)
     print()
     print("  한글화된 모드의 번역을 검수하고 수정하는 도구입니다.")

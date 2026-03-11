@@ -2,6 +2,8 @@ import os
 import json
 import time
 import re
+import shutil
+import subprocess
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -9,17 +11,17 @@ from typing import List, Tuple, Optional
 
 
 # =============================================================================
-# BG3 모드 자동 한글화 스크립트 v2.1 — 폴더 모드
+# BG3 모드 자동 한글화 스크립트 v2.2 — PAK 직접 모드
 # =============================================================================
 #
-# 이 스크립트는 BG3 Modder's Multitool로 언팩된 모드 폴더를 번역합니다.
-# pak 파일을 직접 처리하는 버전은 BG3_AutoKorean_PAK_v2.1.py를 참고하세요.
+# .pak 파일을 직접 입력하면 자동으로 언팩 → 번역 → 리팩까지 처리합니다.
+# BG3 Modder's Multitool 없이도 사용 가능합니다.
 #
 # 두 버전의 차이:
-#   - 이 파일 (v2.1, 폴더 모드): 이미 언팩된 폴더를 대상으로 번역만 수행
-#     → BG3 Modder's Multitool로 직접 언팩/리팩해야 합니다
-#   - BG3_AutoKorean_PAK_v2.1.py (pak 모드): .pak 파일을 넣으면 전자동
+#   - 이 파일 (v2.2, PAK 모드): .pak 파일을 넣으면 전자동
 #     → divine.exe(LSLib)로 언팩 → 번역 → 리팩까지 한번에 처리
+#   - BG3_AutoKorean_Folder_v2.2.py (폴더 모드): 이미 언팩된 폴더를 대상으로 번역만 수행
+#     → BG3 Modder's Multitool로 직접 언팩/리팩해야 합니다
 #
 # 두 버전의 번역 엔진(용어집, 캐시, API 호출 등)은 완전히 동일합니다.
 # 차이는 "번역 전후 작업을 어떤 도구로 처리하느냐"뿐입니다.
@@ -28,13 +30,16 @@ from typing import List, Tuple, Optional
 # ※ 이 코드를 자유롭게 수정해서 사용하셔도 됩니다!
 #
 #   수정하기 좋은 부분:
-#   - [설정 구간]: API 키, 경로 등 기본 설정
+#   - [설정 구간]: API 키, divine.exe 경로, 대상 pak 경로
 #   - [용어집]: 고유명사 번역 추가/수정 (GLOSSARY 딕셔너리)
 #   - [고급 설정]: AI 모델 변경, 청크 크기 조정 등
 #   - [번역 파이프라인]: 번역 로직 자체를 바꾸고 싶을 때
+#   - [divine.exe 연동]: 언팩/리팩 명령어 옵션 변경
 #
 #   각 섹션에 설명이 달려 있으니 참고하세요.
 # ────────────────────────────────────────────────────────
+#
+# ※ 처음 사용하시는 분은 아래 [1단계]~[3단계]를 먼저 읽어주세요.
 #
 # ----------------------------------------------------------------
 # [1단계] Gemini API 키 발급 방법 (무료)
@@ -43,26 +48,39 @@ from typing import List, Tuple, Optional
 #  2. 왼쪽 메뉴에서 "Get API key" 클릭
 #  3. "Create API key" 버튼 클릭
 #  4. 생성된 키(AIzaSy...로 시작하는 문자열)를 복사
-#  5. 아래 [2단계]에 따라 키를 입력
+#  5. 아래 [설정 구간]에 따라 키를 입력
 #
 # ----------------------------------------------------------------
-# [2단계] API 키와 경로 설정 방법 (두 가지 중 하나를 선택)
+# [2단계] LSLib (ExportTool) 다운로드 — divine.exe 포함
+# ----------------------------------------------------------------
+#  1. https://github.com/Norbyte/lslib/releases 접속
+#  2. 최신 버전의 ExportTool-vX.X.X.zip 파일을 다운로드
+#  3. 압축 해제
+#  4. Divine.exe 위치: ExportTool폴더/Packed/Tools/Divine.exe
+#     예시: C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe
+#
+#  ※ .NET 8.0 런타임이 필요합니다 (없으면 Divine.exe 실행 시 안내가 뜹니다)
+#     다운로드: https://dotnet.microsoft.com/download/dotnet/8.0
+#     → ".NET Desktop Runtime" 설치
+#
+# ----------------------------------------------------------------
+# [3단계] 설정 방법 (두 가지 중 하나를 선택)
 # ----------------------------------------------------------------
 #
 #  ★ 방법 A: 코드에 직접 입력 (간단)
 #     아래 설정 구간에서
 #       API_KEY = ""  →  API_KEY = "여기에 발급받은 키 붙여넣기"
-#       TARGET_ROOT_FOLDER = ""  →  해당 경로로 변경
+#       DIVINE_EXE = ""  →  divine.exe 경로
+#       TARGET_PAK = ""  →  .pak 파일 경로 또는 .pak이 들어있는 폴더 경로
 #     저장 후 실행하면 됩니다.
 #
 #  ★ 방법 B: 실행할 때마다 직접 입력 (코드 수정 없이 사용 가능)
-#     API_KEY와 TARGET_ROOT_FOLDER를 빈 문자열("")로 두면
-#     스크립트 실행 시 자동으로 입력을 요청합니다.
+#     모두 빈 문자열("")로 두면 스크립트 실행 시 자동으로 입력을 요청합니다.
 #
 # ----------------------------------------------------------------
 # [참고] 경로 입력 예시 (Windows)
 # ----------------------------------------------------------------
-#  올바른 예시:  r"C:\Users\홍길동\Downloads\bg3-modders-multitool"
+#  올바른 예시:  r"C:\Users\홍길동\Downloads\ExportTool-v1.20.4\Packed\Tools\Divine.exe"
 #  앞에 r을 붙이고 큰따옴표로 감싸야 역슬래시(\)가 올바르게 인식됩니다.
 #
 # =============================================================================
@@ -76,10 +94,16 @@ from typing import List, Tuple, Optional
 # 비워두면 실행 시 입력 요청
 API_KEY = ""
 
-# 번역할 모드 파일의 루트 경로 (bg3-modders-multitool 폴더)
+# Divine.exe 경로 (LSLib ExportTool에 포함)
 # 비워두면 실행 시 입력 요청
-# 예시: r"C:\Users\홍길동\Downloads\bg3-modders-multitool"
-TARGET_ROOT_FOLDER = ""
+# 예시: r"C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe"
+DIVINE_EXE = ""
+
+# 번역할 .pak 파일 또는 .pak이 들어있는 폴더 경로
+# 비워두면 실행 시 입력 요청
+# 예시 (단일 파일): r"C:\Mods\SomeMod.pak"
+# 예시 (폴더):     r"C:\Mods"  ← 폴더 안의 모든 .pak을 한번에 처리
+TARGET_PAK = ""
 
 # 번역 실패 로그 파일 경로
 # 비워두면 스크립트와 같은 폴더에 translation_errors.txt 로 저장
@@ -888,65 +912,6 @@ def parse_response(response: str, expected_count: int) -> Optional[dict]:
 
 
 # ==========================================
-# [설정] 실행 시 API 키와 경로를 확정하는 부분
-# ==========================================
-def setup_config() -> Tuple[str, str, str, str]:
-    """
-    API 키, 경로, 로그 파일 경로, 캐시 파일 경로를 확정한다.
-    코드에 직접 입력된 값이 없으면 실행 시 사용자에게 입력받는다.
-    """
-    # --- API 키 확정 ---
-    api_key = API_KEY.strip()
-
-    if not api_key:
-        print("=" * 60)
-        print("  Gemini API 키가 설정되어 있지 않습니다.")
-        print()
-        print("  API 키 발급 방법:")
-        print("  1. https://aistudio.google.com 접속")
-        print("  2. 'Get API key' → 'Create API key' 클릭")
-        print("  3. 생성된 키(AIzaSy...로 시작)를 아래에 붙여넣기")
-        print("=" * 60)
-        api_key = input("  API 키 입력: ").strip()
-        print()
-
-    if not api_key:
-        print("❌ API 키가 입력되지 않았습니다. 프로그램을 종료합니다.")
-        raise SystemExit(1)
-
-    # --- 루트 경로 확정 ---
-    root_folder = TARGET_ROOT_FOLDER.strip()
-
-    if not root_folder:
-        print("=" * 60)
-        print("  번역할 모드 파일의 루트 경로를 입력해주세요.")
-        print()
-        print("  예시: C:\\Users\\홍길동\\Downloads\\bg3-modders-multitool")
-        print("  (폴더를 탐색기에서 찾아 주소창의 경로를 복사해서 붙여넣기)")
-        print("=" * 60)
-        root_folder = input("  경로 입력: ").strip().strip('"').strip("'")
-        print()
-
-    if not root_folder:
-        print("❌ 경로가 입력되지 않았습니다. 프로그램을 종료합니다.")
-        raise SystemExit(1)
-
-    # --- 로그 파일 경로 확정 ---
-    log_file = LOG_FILE.strip()
-    if not log_file:
-        script_dir = Path(__file__).parent
-        log_file = str(script_dir / "translation_errors.txt")
-
-    # --- 캐시 파일 경로 확정 ---
-    cache_file = TRANSLATION_CACHE_FILE.strip()
-    if not cache_file:
-        script_dir = Path(__file__).parent
-        cache_file = str(script_dir / "translation_cache.json")
-
-    return api_key, root_folder, log_file, cache_file
-
-
-# ==========================================
 # [번역 파이프라인] XML 파일 하나를 처리하는 핵심 로직
 # ==========================================
 # 1. XML에서 <content> 블록 추출
@@ -1123,38 +1088,151 @@ def is_already_korean(text: str) -> bool:
 
 
 # ==========================================
-# [실행] 메인 진입점 — 여기서 모든 것이 시작됩니다
+# [divine.exe 연동] LSLib의 divine.exe로 pak 언팩/리팩
 # ==========================================
-def run(api_key: str, root_folder: str, log_file: str, cache_file: str) -> None:
-    load_translation_cache(cache_file)
+# divine.exe는 LSLib(ExportTool)에 포함된 명령줄 도구입니다.
+# .pak 파일을 풀거나(언팩) 다시 묶는(리팩) 역할을 합니다.
+#
+# check_divine_exe(): divine.exe 존재 여부 확인
+# divine_extract(): pak → 폴더 (언팩)
+# divine_repack(): 폴더 → pak (리팩, LZ4 압축)
+#
+# 리팩 옵션을 변경하고 싶으면 divine_repack()의 cmd 배열을 수정하세요.
+# 예: "-c", "lz4" 를 "-c", "zlib" 로 변경 (압축 방식 변경)
+# ==========================================
+def check_divine_exe(divine_path: str) -> bool:
+    """divine.exe가 존재하고 실행 가능한지 확인한다."""
+    if not os.path.isfile(divine_path):
+        print(f"❌ Divine.exe를 찾을 수 없습니다: {divine_path}")
+        print("   LSLib ExportTool에 포함된 Divine.exe 경로를 확인하세요.")
+        print("   다운로드: https://github.com/Norbyte/lslib/releases")
+        return False
+    return True
 
-    root_path = Path(root_folder)
-    print(f"[시작] 루트 경로: {root_path}")
 
-    if not root_path.exists():
-        print("❌ 경로를 찾을 수 없습니다. 경로를 다시 확인해주세요.")
-        return
+def divine_extract(divine_path: str, pak_path: Path, dest_folder: Path) -> bool:
+    """divine.exe로 pak을 언팩한다."""
+    dest_folder.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        divine_path,
+        "-g", "bg3",
+        "-a", "extract-package",
+        "-s", str(pak_path),
+        "-d", str(dest_folder),
+        "-l", "all",
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            print(f"    ❌ divine 언팩 실패 (exit code {result.returncode})")
+            if result.stderr:
+                print(f"       stderr: {result.stderr[:300]}")
+            return False
+        return True
+    except subprocess.TimeoutExpired:
+        print(f"    ❌ divine 언팩 타임아웃 (5분 초과)")
+        return False
+    except Exception as e:
+        print(f"    ❌ divine 실행 오류: {e}")
+        return False
 
-    loc_folders = find_localization_folders(root_path)
-    print(f"총 {len(loc_folders)}개의 Localization 폴더를 발견했습니다.\n")
 
+def convert_loca_to_xml(divine_path: str, unpacked_path: Path) -> int:
+    """
+    언팩된 폴더의 Localization 안에 있는 .loca 바이너리 파일을 XML로 변환한다.
+    일부 모드는 텍스트를 .loca (바이너리) 형식으로 저장하므로,
+    divine.exe의 convert-loca 기능으로 XML 변환 후 번역한다.
+    변환된 파일 수를 반환한다.
+    """
+    loca_files = list(unpacked_path.rglob("*.loca"))
+    converted = 0
+    for loca_file in loca_files:
+        # Localization 폴더 안의 .loca 파일만 변환
+        if "localization" not in str(loca_file).lower():
+            continue
+        xml_out = loca_file.with_suffix(".loca.xml")
+        cmd = [
+            divine_path,
+            "-g", "bg3",
+            "-a", "convert-loca",
+            "-s", str(loca_file),
+            "-d", str(xml_out),
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0 and xml_out.exists():
+                loca_file.unlink()  # 원본 .loca 바이너리 삭제
+                converted += 1
+        except Exception:
+            pass
+    return converted
+
+
+def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bool:
+    """divine.exe로 폴더를 pak으로 리팩한다."""
+    output_pak.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        divine_path,
+        "-g", "bg3",
+        "-a", "create-package",
+        "-s", str(source_folder),
+        "-d", str(output_pak),
+        "-c", "lz4",
+    ]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            print(f"    ❌ divine 리팩 실패 (exit code {result.returncode})")
+            if result.stderr:
+                print(f"       stderr: {result.stderr[:300]}")
+            return False
+        return True
+    except subprocess.TimeoutExpired:
+        print(f"    ❌ divine 리팩 타임아웃 (5분 초과)")
+        return False
+    except Exception as e:
+        print(f"    ❌ divine 실행 오류: {e}")
+        return False
+
+
+# ==========================================
+# [pak 번역 처리] 언팩된 모드를 번역하고 다시 pak으로 묶기
+# ==========================================
+# translate_unpacked_mod(): 언팩된 폴더에서 Localization을 찾아 번역
+# process_pak_file(): 하나의 pak을 언팩 → 번역 → 리팩하는 전체 흐름
+#   → 결과물: 원본이름_Korean.pak
+# ==========================================
+def translate_unpacked_mod(unpacked_path: Path, api_key: str, log_file: str) -> bool:
+    """
+    언팩된 폴더 안의 Localization을 찾아 번역한다.
+    성공 시 True, 번역할 게 없거나 실패 시 False.
+    """
+    loc_folders = find_localization_folders(unpacked_path)
     if not loc_folders:
-        print("⚠️ 처리할 Localization 폴더를 찾지 못했습니다.")
-        print("   경로가 올바른지, bg3-modders-multitool로 모드를 언팩했는지 확인해주세요.")
-        return
+        return False
+
+    any_translated = False
 
     for loc_path in loc_folders:
-        print(f"📂 Localization 처리 중: {loc_path}")
+        print(f"    📂 Localization: {loc_path.relative_to(unpacked_path)}")
 
         if SKIP_IF_KOREAN_EXISTS and has_korean_folder(loc_path):
-            print("    - Korean 폴더가 이미 존재함. (한글화 완료로 간주) 스킵")
-            print("-" * 50)
+            print("       Korean 폴더가 이미 존재함. 스킵")
             continue
 
         src_dirs = list_source_language_dirs(loc_path)
         if not src_dirs:
-            print("    - 하위 언어 폴더를 찾지 못함. 스킵")
-            print("-" * 50)
+            print("       하위 언어 폴더를 찾지 못함. 스킵")
             continue
 
         korean_path = loc_path / "Korean"
@@ -1163,25 +1241,29 @@ def run(api_key: str, root_folder: str, log_file: str, cache_file: str) -> None:
         # English 우선, 첫 번째 언어 폴더만 사용 (중복 번역 방지)
         src_dir = src_dirs[0]
         if len(src_dirs) > 1:
-            print(f"    - 언어 폴더 {len(src_dirs)}개. '{src_dir.name}'을 소스로 사용")
+            print(f"       언어 폴더 {len(src_dirs)}개. '{src_dir.name}'을 소스로 사용")
 
         xml_files = list(src_dir.glob(INPUT_GLOB))
+        # INPUT_GLOB(*.xml)로 못 찾으면 .loca.xml, .lsx 등도 시도
         if not xml_files:
-            # .loca 바이너리 파일이 있는지 확인 (divine.exe로 풀었을 경우)
-            loca_files = list(src_dir.glob("*.loca"))
-            if loca_files:
-                print(f"    ⚠️ .loca 바이너리 파일 {len(loca_files)}개 발견!")
-                print(f"      .loca는 바이너리 형식이라 직접 번역할 수 없습니다.")
-                print(f"      해결 방법:")
-                print(f"        1) PAK 모드(BG3_AutoKorean_PAK_v2.1.py)를 사용하세요 (자동 변환)")
-                print(f"        2) 또는 Multitool로 다시 추출하세요 (.loca.xml로 자동 변환됨)")
-            print("-" * 50)
+            for fallback_glob in ["*.loca.xml", "*.lsx", "*.loca"]:
+                xml_files = list(src_dir.glob(fallback_glob))
+                if xml_files:
+                    break
+        if not xml_files:
+            # 진단용: 폴더 안에 실제로 어떤 파일이 있는지 출력
+            all_files = list(src_dir.iterdir())
+            if all_files:
+                names = [f.name for f in all_files[:10]]
+                print(f"       ⚠️ {src_dir.name} 폴더에 XML 파일 없음. 발견된 파일: {names}")
+            else:
+                print(f"       ⚠️ {src_dir.name} 폴더가 비어있음")
             continue
 
-        print(f"    - 원본 폴더: {src_dir.name} (XML {len(xml_files)}개)")
+        print(f"       원본 폴더: {src_dir.name} (XML {len(xml_files)}개)")
 
         for xml_file in xml_files:
-            print(f"    ▶ 파일 처리: {xml_file.name}")
+            print(f"       ▶ 파일 처리: {xml_file.name}")
 
             try:
                 original = xml_file.read_text(encoding="utf-8", errors="strict")
@@ -1189,38 +1271,238 @@ def run(api_key: str, root_folder: str, log_file: str, cache_file: str) -> None:
                 original = xml_file.read_text(encoding="utf-8", errors="replace")
 
             if not original.strip():
-                print("      - 빈 파일. 스킵")
+                print("         빈 파일. 스킵")
                 continue
 
             if is_already_korean(original):
-                print("      - 이미 한글화된 파일. 스킵")
+                print("         이미 한글화된 파일. 스킵")
                 continue
 
             translated = process_xml_file(original, xml_file.name, api_key, log_file)
 
             out_file = korean_path / xml_file.name
             out_file.write_text(translated, encoding="utf-8")
-            print(f"      ✅ 저장 완료: {out_file}")
+            print(f"         ✅ 저장 완료: {out_file.name}")
+            any_translated = True
 
-        print("-" * 50)
+    return any_translated
 
+
+def process_pak_file(pak_path: Path, divine_path: str,
+                     api_key: str, log_file: str, cache_file: str) -> bool:
+    """단일 pak 파일을 언팩 → 번역 → 리팩 처리한다."""
+    pak_name = pak_path.stem
+    output_pak = pak_path.parent / f"{pak_name}_Korean.pak"
+
+    if output_pak.exists():
+        print(f"  ⏩ 이미 번역된 pak 존재: {output_pak.name}. 스킵")
+        return False
+
+    # 임시 폴더
+    script_dir = Path(__file__).parent
+    temp_dir = script_dir / "_pak_temp" / pak_name
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    # 언팩
+    print(f"  📤 언팩 중: {pak_path.name}")
+    if not divine_extract(divine_path, pak_path, temp_dir):
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        return False
+
+    # .loca 바이너리 → XML 변환 (일부 모드는 .loca 형식 사용)
+    loca_count = convert_loca_to_xml(divine_path, temp_dir)
+    if loca_count > 0:
+        print(f"  🔄 .loca → XML 변환: {loca_count}개 파일")
+
+    # 번역
+    print(f"  🔄 번역 시작...")
+    translated = translate_unpacked_mod(temp_dir, api_key, log_file)
+
+    if not translated:
+        print(f"  ⚠️ 번역할 Localization이 없거나 이미 완료됨")
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return False
+
+    # 캐시 저장 (각 pak 처리 후)
+    save_translation_cache(cache_file)
+
+    # 리팩
+    print(f"  📥 리팩 중: → {output_pak.name}")
+    if not divine_repack(divine_path, temp_dir, output_pak):
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return False
+
+    # 임시 폴더 정리
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+    print(f"  ✅ 한글화 완료: {output_pak.name}")
+    return True
+
+
+# ==========================================
+# [설정] 실행 시 API 키와 경로를 확정하는 부분
+# ==========================================
+def setup_config() -> Tuple[str, str, str, str, str]:
+    """
+    API 키, divine.exe 경로, 대상 pak 경로, 로그 파일, 캐시 파일을 확정한다.
+    코드에 직접 입력된 값이 없으면 실행 시 사용자에게 입력받는다.
+    """
+    # --- API 키 확정 ---
+    api_key = API_KEY.strip()
+
+    if not api_key:
+        print("=" * 60)
+        print("  Gemini API 키가 설정되어 있지 않습니다.")
+        print()
+        print("  API 키 발급 방법:")
+        print("  1. https://aistudio.google.com 접속")
+        print("  2. 'Get API key' → 'Create API key' 클릭")
+        print("  3. 생성된 키(AIzaSy...로 시작)를 아래에 붙여넣기")
+        print("=" * 60)
+        api_key = input("  API 키 입력: ").strip()
+        print()
+
+    if not api_key:
+        print("❌ API 키가 입력되지 않았습니다. 프로그램을 종료합니다.")
+        raise SystemExit(1)
+
+    # --- Divine.exe 경로 확정 ---
+    divine_path = DIVINE_EXE.strip()
+
+    if not divine_path:
+        print("=" * 60)
+        print("  Divine.exe 경로를 입력해주세요.")
+        print()
+        print("  LSLib ExportTool 다운로드:")
+        print("  https://github.com/Norbyte/lslib/releases")
+        print()
+        print("  Divine.exe 위치 예시:")
+        print("  C:\\ExportTool-v1.20.4\\Packed\\Tools\\Divine.exe")
+        print("=" * 60)
+        divine_path = input("  Divine.exe 경로 입력: ").strip().strip('"').strip("'")
+        print()
+
+    if not divine_path:
+        print("❌ Divine.exe 경로가 입력되지 않았습니다. 프로그램을 종료합니다.")
+        raise SystemExit(1)
+
+    # --- 대상 pak 경로 확정 ---
+    target_pak = TARGET_PAK.strip()
+
+    if not target_pak:
+        print("=" * 60)
+        print("  번역할 .pak 파일 또는 .pak이 들어있는 폴더 경로를 입력해주세요.")
+        print()
+        print("  예시 (단일 파일): C:\\Mods\\SomeMod.pak")
+        print("  예시 (폴더):     C:\\Mods")
+        print("  → 폴더를 지정하면 안의 모든 .pak 파일을 한번에 처리합니다.")
+        print("=" * 60)
+        target_pak = input("  경로 입력: ").strip().strip('"').strip("'")
+        print()
+
+    if not target_pak:
+        print("❌ 경로가 입력되지 않았습니다. 프로그램을 종료합니다.")
+        raise SystemExit(1)
+
+    # --- 로그 파일 경로 확정 ---
+    log_file = LOG_FILE.strip()
+    if not log_file:
+        script_dir = Path(__file__).parent
+        log_file = str(script_dir / "translation_errors.txt")
+
+    # --- 캐시 파일 경로 확정 ---
+    cache_file = TRANSLATION_CACHE_FILE.strip()
+    if not cache_file:
+        script_dir = Path(__file__).parent
+        cache_file = str(script_dir / "translation_cache.json")
+
+    return api_key, divine_path, target_pak, log_file, cache_file
+
+
+# ==========================================
+# [실행] 메인 진입점 — 여기서 모든 것이 시작됩니다
+# ==========================================
+def run(api_key: str, divine_path: str, target_pak: str,
+        log_file: str, cache_file: str) -> None:
+    # divine.exe 확인
+    if not check_divine_exe(divine_path):
+        return
+
+    # 캐시 로드
+    load_translation_cache(cache_file)
+
+    target = Path(target_pak)
+
+    if target.is_file() and target.suffix.lower() == ".pak":
+        # 단일 pak 파일
+        print(f"\n[단일 pak 모드] {target.name}")
+        print("=" * 50)
+        process_pak_file(target, divine_path, api_key, log_file, cache_file)
+
+    elif target.is_dir():
+        # 폴더 내 모든 pak 처리
+        pak_files = sorted(target.glob("*.pak"))
+        # _Korean.pak은 제외
+        pak_files = [p for p in pak_files if not p.stem.endswith("_Korean")]
+
+        if not pak_files:
+            print(f"❌ 폴더에 .pak 파일이 없습니다: {target}")
+            return
+
+        print(f"\n[다중 pak 모드] {target}")
+        print(f"총 {len(pak_files)}개의 .pak 파일을 처리합니다.")
+        print("=" * 50)
+
+        stats = {"done": 0, "skipped": 0, "failed": 0}
+
+        for i, pak_file in enumerate(pak_files, start=1):
+            print(f"\n[{i}/{len(pak_files)}] 📦 {pak_file.name}")
+            result = process_pak_file(pak_file, divine_path, api_key, log_file, cache_file)
+            if result:
+                stats["done"] += 1
+            elif (pak_file.parent / f"{pak_file.stem}_Korean.pak").exists():
+                stats["skipped"] += 1
+            else:
+                stats["failed"] += 1
+
+        print("\n" + "=" * 50)
+        print(f"[결과 요약]")
+        print(f"  ✅ 번역 완료: {stats['done']}개")
+        print(f"  ⏩ 스킵:     {stats['skipped']}개")
+        print(f"  ❌ 실패:     {stats['failed']}개")
+
+    else:
+        print(f"❌ 지정한 경로가 .pak 파일도 폴더도 아닙니다: {target}")
+        return
+
+    # 최종 캐시 저장
     save_translation_cache(cache_file)
     cache = load_translation_cache(cache_file)
     print(f"\n💾 번역 캐시: {len(cache)}개 항목 저장됨")
 
+    # 임시 폴더 정리
+    temp_root = Path(__file__).parent / "_pak_temp"
+    if temp_root.exists():
+        shutil.rmtree(temp_root, ignore_errors=True)
+
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("   BG3 모드 자동 한글화 스크립트 v2.1 — 폴더 모드")
+    print("   BG3 모드 자동 한글화 스크립트 v2.2 — PAK 직접 모드")
     print("=" * 60)
     print()
 
-    api_key, root_folder, log_file, cache_file = setup_config()
+    api_key, divine_path, target_pak, log_file, cache_file = setup_config()
 
-    print(f"  API 키  : {api_key[:8]}...{api_key[-4:]} (확인용 앞뒤 일부만 표시)")
-    print(f"  대상 경로: {root_folder}")
-    print(f"  로그 파일: {log_file}")
-    print(f"  캐시 파일: {cache_file}")
+    print(f"  API 키     : {api_key[:8]}...{api_key[-4:]} (확인용 앞뒤 일부만 표시)")
+    print(f"  Divine.exe : {divine_path}")
+    print(f"  대상 경로  : {target_pak}")
+    print(f"  로그 파일  : {log_file}")
+    print(f"  캐시 파일  : {cache_file}")
+    print()
+    print("  ⚠️ API 키를 타인에게 공유하지 마세요!")
     print()
     print("  위 설정으로 한글화를 시작합니다.")
     print("  (취소하려면 지금 창을 닫으세요)")
@@ -1228,7 +1510,7 @@ if __name__ == "__main__":
     input("  엔터를 누르면 시작합니다... ")
     print()
 
-    run(api_key, root_folder, log_file, cache_file)
+    run(api_key, divine_path, target_pak, log_file, cache_file)
 
     print("\n--- 작업 종료 ---")
     input("엔터 키를 누르면 종료합니다.")

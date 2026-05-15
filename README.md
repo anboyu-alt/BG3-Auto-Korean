@@ -5,6 +5,16 @@
 
 ---
 
+## ⬇️ GUI 버전 다운로드
+
+> **Python 설치 없이 바로 사용 가능한 EXE 버전입니다.**
+
+### 👉 [BG3_AutoKorean_GUI.exe 다운로드](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
+
+릴리즈 페이지에서 `BG3_AutoKorean_GUI.exe` 를 클릭하면 즉시 다운로드됩니다.
+
+---
+
 ## 목차
 
 1. [준비물](#준비물)

@@ -1,5 +1,64 @@
+import json
+import os
 import re
+from pathlib import Path
 from typing import Optional
+
+# ── 커스텀 용어집 ──────────────────────────────────────────
+_custom_glossary_cache: Optional[dict] = None
+_effective_glossary_cache: Optional[dict] = None
+
+
+def _get_custom_glossary_path() -> Path:
+    appdata = os.environ.get("APPDATA", Path.home())
+    return Path(appdata) / "BG3-Auto-Korean" / "custom_glossary.json"
+
+
+def load_custom_glossary() -> dict:
+    global _custom_glossary_cache
+    if _custom_glossary_cache is not None:
+        return _custom_glossary_cache
+    path = _get_custom_glossary_path()
+    if path.exists():
+        try:
+            with open(path, encoding="utf-8") as f:
+                _custom_glossary_cache = json.load(f)
+                return _custom_glossary_cache
+        except Exception:
+            pass
+    _custom_glossary_cache = {}
+    return _custom_glossary_cache
+
+
+def save_custom_glossary(entries: dict) -> None:
+    global _custom_glossary_cache, _effective_glossary_cache
+    path = _get_custom_glossary_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+    _custom_glossary_cache = dict(entries)
+    _effective_glossary_cache = None
+    # 시스템 프롬프트 캐시도 무효화 (용어집이 바뀌면 프롬프트도 재생성 필요)
+    try:
+        import bg3core.translate as _t
+        _t._SYSTEM_INSTRUCTION = None
+    except Exception:
+        pass
+
+
+def get_effective_glossary() -> dict:
+    """기본 용어집 + 커스텀 용어집 합산 (커스텀 우선)."""
+    global _effective_glossary_cache
+    if _effective_glossary_cache is None:
+        _effective_glossary_cache = dict(GLOSSARY)
+        _effective_glossary_cache.update(load_custom_glossary())
+    return _effective_glossary_cache
+
+
+def invalidate_glossary_cache() -> None:
+    global _effective_glossary_cache
+    _effective_glossary_cache = None
+# ───────────────────────────────────────────────────────────
 
 
 GLOSSARY = {
@@ -392,29 +451,32 @@ GLOSSARY = {
 
 
 def try_glossary_only(text: str) -> Optional[str]:
+    g = get_effective_glossary()
     stripped = text.strip()
-    if stripped in GLOSSARY:
-        return GLOSSARY[stripped]
-    for src, dst in GLOSSARY.items():
+    if stripped in g:
+        return g[stripped]
+    for src, dst in g.items():
         if stripped.lower() == src.lower():
             return dst
     return None
 
 
 def build_glossary_prompt_section() -> str:
-    if not GLOSSARY:
+    g = get_effective_glossary()
+    if not g:
         return ""
     lines = ["[고유 용어 번역 규칙]",
              "아래 용어는 원문에 등장할 경우 반드시 지정된 한국어로 번역한다."]
-    for src, dst in GLOSSARY.items():
+    for src, dst in g.items():
         lines.append(f"  {src} -> {dst}")
     lines.append("")
     return "\n".join(lines) + "\n"
 
 
 def apply_glossary(text: str) -> str:
-    if not GLOSSARY:
+    g = get_effective_glossary()
+    if not g:
         return text
-    for src, dst in sorted(GLOSSARY.items(), key=lambda x: len(x[0]), reverse=True):
+    for src, dst in sorted(g.items(), key=lambda x: len(x[0]), reverse=True):
         text = re.sub(r'\b' + re.escape(src) + r'\b', dst, text)
     return text

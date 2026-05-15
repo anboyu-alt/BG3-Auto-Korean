@@ -9,6 +9,7 @@ from .i18n import configure_default_font
 from .settings_tab import SettingsTab
 from .translate_tab import TranslateTab
 from .reviewer_tab import ReviewerTab
+from .glossary_tab import GlossaryTab
 
 
 class App(ctk.CTk):
@@ -26,31 +27,35 @@ class App(ctk.CTk):
         # 첫 실행 감지 (API 키 없음)
         self._first_run = not self._cfg.api_key
 
-        tabs = ctk.CTkTabview(self, anchor="nw")
-        tabs.pack(fill="both", expand=True, padx=12, pady=12)
+        self._tabs = ctk.CTkTabview(self, anchor="nw")
+        self._tabs.pack(fill="both", expand=True, padx=12, pady=12)
 
-        tabs.add("⚙️ 설정")
-        tabs.add("🔄 번역")
-        tabs.add("🔍 검수")
+        self._tabs.add("⚙️ 설정")
+        self._tabs.add("🔄 번역")
+        self._tabs.add("🔍 검수")
+        self._tabs.add("📖 용어집")
 
         self._settings_tab = SettingsTab(
-            tabs.tab("⚙️ 설정"),
+            self._tabs.tab("⚙️ 설정"),
             on_config_saved=self._on_config_saved,
         )
         self._settings_tab.pack(fill="both", expand=True)
         self._settings_tab.load_config(self._cfg)
 
-        self._translate_tab = TranslateTab(tabs.tab("🔄 번역"))
+        self._translate_tab = TranslateTab(self._tabs.tab("🔄 번역"))
         self._translate_tab.pack(fill="both", expand=True)
         self._translate_tab.set_config(self._cfg)
 
-        self._reviewer_tab = ReviewerTab(tabs.tab("🔍 검수"))
+        self._reviewer_tab = ReviewerTab(self._tabs.tab("🔍 검수"))
         self._reviewer_tab.pack(fill="both", expand=True)
         self._reviewer_tab.set_config(self._cfg)
 
+        self._glossary_tab = GlossaryTab(self._tabs.tab("📖 용어집"))
+        self._glossary_tab.pack(fill="both", expand=True)
+
         # 첫 실행: 설정 탭으로 포커스
         if self._first_run:
-            tabs.set("⚙️ 설정")
+            self._tabs.set("⚙️ 설정")
             self.after(300, self._show_onboarding)
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
+# 번역 캐시 (지우면 재번역 비용 발생 — 절대 삭제 금지!)
+translation_cache.json
+
+# 번역 로그
+translation_errors.txt
+
+# 임시 폴더
+_pak_temp/
+
+# 설정 (개인 API 키 포함)
+# %APPDATA%\BG3-Auto-Korean\config.json 은 추적하지 않음
+
+# Claude Code
+.claude/
+
+# 테스트 파일
+*-test.py

@@ -137,8 +137,8 @@ MAX_TOKENS_PER_CHUNK = 4000
 DOWNSHIFT_TOKEN_STEPS = [4000, 2500, 1500, 800]
 
 MODELS_TO_TRY = [
-    "gemini-2.5-flash-lite",   # 1순위: 저비용
-    "gemini-2.5-flash",         # 폴백
+    "gemini-3.1-flash-lite",   # 1순위: 최신 stable (2027-05-07까지)
+    "gemini-2.5-flash-lite",   # 폴백 (2026-10-16까지)
 ]
 
 BASE_URL = "https://generativelanguage.googleapis.com"

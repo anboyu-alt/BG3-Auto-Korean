@@ -19,6 +19,7 @@ class UserConfig:
     last_pak_dir: str = ""
     last_output_dir: str = ""
     skip_if_korean_exists: bool = True
+    ui_scale: str = "auto"  # "auto" | "1.0" | "1.25" | "1.5" | "1.75" | "2.0"
 
 
 def get_config_dir() -> Path:

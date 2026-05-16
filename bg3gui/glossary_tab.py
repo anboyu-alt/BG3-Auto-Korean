@@ -93,9 +93,17 @@ class GlossaryTab(ctk.CTkFrame):
 
     # ── 공통 트리뷰 팩토리 ────────────────────────────────────
     def _make_tree(self, parent) -> ttk.Treeview:
+        scale = ctk.ScalingTracker.get_widget_scaling(self)
         style = ttk.Style()
-        style.configure("Glossary.Treeview", font=("Malgun Gothic", 11), rowheight=24)
-        style.configure("Glossary.Treeview.Heading", font=("Malgun Gothic", 11, "bold"))
+        style.configure(
+            "Glossary.Treeview",
+            font=("Malgun Gothic", int(11 * scale)),
+            rowheight=int(24 * scale),
+        )
+        style.configure(
+            "Glossary.Treeview.Heading",
+            font=("Malgun Gothic", int(11 * scale), "bold"),
+        )
 
         vsb = ttk.Scrollbar(parent, orient="vertical")
         vsb.pack(side="right", fill="y")

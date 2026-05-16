@@ -80,6 +80,31 @@ class SettingsTab(ctk.CTkFrame):
         self._model2.grid(row=row, column=0, padx=16, pady=2, sticky="w")
         ctk.CTkLabel(self, text="→ 폴백", font=font_s).grid(row=row, column=1, sticky="w")
 
+        # ── UI 배율 ──
+        row += 1
+        ctk.CTkLabel(self, text="UI 배율 (글씨 크기)", font=font_b).grid(
+            row=row, column=0, columnspan=3, padx=16, pady=(12, 4), sticky="w"
+        )
+        row += 1
+        self._scale_label_to_value = {
+            "자동 (모니터 DPI)": "auto",
+            "100%": "1.0",
+            "125%": "1.25",
+            "150%": "1.5",
+            "175%": "1.75",
+            "200%": "2.0",
+        }
+        self._scale_value_to_label = {v: k for k, v in self._scale_label_to_value.items()}
+        self._scale_combo = ctk.CTkComboBox(
+            self, font=font, width=260,
+            values=list(self._scale_label_to_value.keys()),
+            state="readonly",
+        )
+        self._scale_combo.grid(row=row, column=0, padx=16, pady=2, sticky="w")
+        ctk.CTkLabel(
+            self, text="고해상도 모니터에서 글씨가 작으면 키우세요", font=font_s, text_color="gray",
+        ).grid(row=row, column=1, columnspan=2, padx=(4, 16), sticky="w")
+
         # ── 캐시 ──
         row += 1
         ctk.CTkLabel(self, text="번역 캐시 파일", font=font_b).grid(
@@ -128,6 +153,8 @@ class SettingsTab(ctk.CTkFrame):
             self._model2.set(cfg.model_preference[1] if len(cfg.model_preference) > 1 else "gemini-2.5-flash-lite")
         self._cache_picker.set(cfg.cache_path)
         self._skip_var.set(cfg.skip_if_korean_exists)
+        scale_label = self._scale_value_to_label.get(cfg.ui_scale, "자동 (모니터 DPI)")
+        self._scale_combo.set(scale_label)
 
     def _build_config(self) -> UserConfig:
         cfg = self._cfg or UserConfig()
@@ -136,15 +163,24 @@ class SettingsTab(ctk.CTkFrame):
         cfg.model_preference = [m for m in [self._model1.get(), self._model2.get()] if m]
         cfg.cache_path = self._cache_picker.get()
         cfg.skip_if_korean_exists = self._skip_var.get()
+        cfg.ui_scale = self._scale_label_to_value.get(self._scale_combo.get(), "auto")
         return cfg
 
     def _save(self) -> None:
+        prev_scale = self._cfg.ui_scale if self._cfg else "auto"
         cfg = self._build_config()
         save_config(cfg)
+        scale_changed = cfg.ui_scale != prev_scale
         self._cfg = cfg
         if self._on_config_saved:
             self._on_config_saved(cfg)
-        messagebox.showinfo("저장 완료", "설정이 저장되었습니다.\n다음에 실행해도 자동으로 불러옵니다.")
+        if scale_changed:
+            messagebox.showinfo(
+                "저장 완료",
+                "설정이 저장되었습니다.\n\nUI 배율은 프로그램을 다시 실행하면 적용됩니다.",
+            )
+        else:
+            messagebox.showinfo("저장 완료", "설정이 저장되었습니다.\n다음에 실행해도 자동으로 불러옵니다.")
 
     def _test(self) -> None:
         cfg = self._build_config()

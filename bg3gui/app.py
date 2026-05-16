@@ -5,7 +5,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from bg3core.config import UserConfig, get_default_cache_path, load_config, save_config
-from .i18n import configure_default_font
+from .i18n import apply_ui_scale, configure_default_font, enable_dpi_awareness
 from .settings_tab import SettingsTab
 from .translate_tab import TranslateTab
 from .reviewer_tab import ReviewerTab
@@ -14,15 +14,17 @@ from .glossary_tab import GlossaryTab
 
 class App(ctk.CTk):
     def __init__(self):
+        enable_dpi_awareness()
         super().__init__()
         configure_default_font()
         ctk.set_appearance_mode("system")
 
-        self.title("BG3 모드 자동 한글화 v3.0")
+        self._cfg: UserConfig = load_config()
+        self._current_scale = apply_ui_scale(self._cfg.ui_scale)
+
+        self.title("BG3 모드 자동 한글화 v3.1")
         self.geometry("860x680")
         self.minsize(720, 500)
-
-        self._cfg: UserConfig = load_config()
 
         # 첫 실행 감지 (API 키 없음)
         self._first_run = not self._cfg.api_key

@@ -52,8 +52,9 @@ class ReviewerTab(ctk.CTkFrame):
         tree_frame.pack(side="left", fill="y", padx=(0, 8))
         tree_frame.pack_propagate(False)
         ctk.CTkLabel(tree_frame, text="파일 목록", font=font_b).pack(pady=(8, 4))
+        scale = ctk.ScalingTracker.get_widget_scaling(self)
         self._file_tree = tk.Listbox(
-            tree_frame, font=("Malgun Gothic", 10), selectmode="single",
+            tree_frame, font=("Malgun Gothic", int(10 * scale)), selectmode="single",
             bg="#2b2b2b", fg="white", selectbackground="#1f6aa5",
         )
         self._file_tree.pack(fill="both", expand=True, padx=4, pady=(0, 8))

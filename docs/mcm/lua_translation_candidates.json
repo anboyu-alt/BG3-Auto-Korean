@@ -1,0 +1,464 @@
+{
+  "summary": {
+    "patterns": {
+      "AddText": 29,
+      "AddButton": 11,
+      "AddCollapsingHeader": 3,
+      "AddInputText_label": 6,
+      "AddInputText_init": 5,
+      "AddCombo": 9,
+      "Hint": 3,
+      "TextAssign": 7
+    },
+    "option_arrays": 7
+  },
+  "by_pattern": {
+    "AddText": [
+      {
+        "line": 267,
+        "text": "Local template override is active.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 354,
+        "text": "Edited",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 358,
+        "text": "Root",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 362,
+        "text": "Local",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 406,
+        "text": "Filter by whether items have been edited in the active preset.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 413,
+        "text": "Filter by whether items are from the base game or from other mods.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 425,
+        "text": "Filter by whether an item can be picked up by the player.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 437,
+        "text": "Filter by whether an item is a container.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 449,
+        "text": "Filter by the item's current visibility state.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 457,
+        "text": "Filter by the item's general category.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 469,
+        "text": "Filter by the specific mod an item originates from.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 478,
+        "text": "Filter by template scope.\\n\\nNote: Local templates only show items currently loaded in the world. Fast travel or enter new areas to load more.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 494,
+        "text": "The 'Default' preset cannot be deleted.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 496,
+        "text": "Deletes the currently selected preset. This cannot be undone.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 509,
+        "text": "Filter:",
+        "kind": "AUTO"
+      },
+      {
+        "line": 516,
+        "text": " | Apply to filtered:",
+        "kind": "AUTO"
+      },
+      {
+        "line": 540,
+        "text": "Status",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 540,
+        "text": "Icon",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 540,
+        "text": "Display Name",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 542,
+        "text": "Internal Name",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 542,
+        "text": "Visibility",
+        "kind": "REVIEW_ambiguous"
+      },
+      {
+        "line": 583,
+        "text": "Configure tooltip visibility for items.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 586,
+        "text": "Active Preset:",
+        "kind": "AUTO"
+      },
+      {
+        "line": 596,
+        "text": "Select which group of settings to use.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 624,
+        "text": "Export Current Preset As:",
+        "kind": "AUTO"
+      },
+      {
+        "line": 644,
+        "text": "Import Preset from File:",
+        "kind": "AUTO"
+      },
+      {
+        "line": 680,
+        "text": "Note: Local templates only show items currently loaded in the world. Fast travel or enter new areas to load more.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 685,
+        "text": "Request latest templates from server. Local templates will reflect currently loaded world areas.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 773,
+        "text": "Note: Local templates only show items currently loaded in the world. Fast travel or enter new areas to load more.",
+        "kind": "AUTO"
+      }
+    ],
+    "AddButton": [
+      {
+        "line": 513,
+        "text": "Refresh List",
+        "kind": "AUTO"
+      },
+      {
+        "line": 514,
+        "text": "Reset Current Preset",
+        "kind": "AUTO"
+      },
+      {
+        "line": 518,
+        "text": "Set to Hover",
+        "kind": "AUTO"
+      },
+      {
+        "line": 519,
+        "text": "Set to Highlight",
+        "kind": "AUTO"
+      },
+      {
+        "line": 520,
+        "text": "Set to Hidden",
+        "kind": "AUTO"
+      },
+      {
+        "line": 602,
+        "text": "Save Current Settings as New Preset",
+        "kind": "AUTO"
+      },
+      {
+        "line": 611,
+        "text": "Delete Current Preset",
+        "kind": "AUTO"
+      },
+      {
+        "line": 627,
+        "text": "Export to File",
+        "kind": "AUTO"
+      },
+      {
+        "line": 647,
+        "text": "Import from File",
+        "kind": "AUTO"
+      },
+      {
+        "line": 683,
+        "text": "Load Items",
+        "kind": "AUTO"
+      },
+      {
+        "line": 776,
+        "text": "Load Items",
+        "kind": "AUTO"
+      }
+    ],
+    "AddCollapsingHeader": [
+      {
+        "line": 506,
+        "text": "Item Filters & Actions",
+        "kind": "AUTO"
+      },
+      {
+        "line": 585,
+        "text": "Preset Management",
+        "kind": "AUTO"
+      },
+      {
+        "line": 618,
+        "text": "Import / Export Presets",
+        "kind": "AUTO"
+      }
+    ],
+    "AddInputText_label": [
+      {
+        "line": 522,
+        "text": "Search",
+        "kind": "AUTO"
+      },
+      {
+        "line": 528,
+        "text": "##ItemCount",
+        "kind": "BL_id"
+      },
+      {
+        "line": 601,
+        "text": "New Preset Name",
+        "kind": "AUTO"
+      },
+      {
+        "line": 620,
+        "text": "##StatusLabel",
+        "kind": "BL_id"
+      },
+      {
+        "line": 625,
+        "text": "##ExportName",
+        "kind": "BL_id"
+      },
+      {
+        "line": 645,
+        "text": "##ImportFilename",
+        "kind": "BL_id"
+      }
+    ],
+    "AddInputText_init": [
+      {
+        "line": 522,
+        "text": "",
+        "kind": "BL_empty"
+      },
+      {
+        "line": 528,
+        "text": "Showing 0 / 0 items",
+        "kind": "AUTO"
+      },
+      {
+        "line": 601,
+        "text": "",
+        "kind": "BL_empty"
+      },
+      {
+        "line": 620,
+        "text": "Share presets by exporting/importing them as files.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 645,
+        "text": "",
+        "kind": "BL_empty"
+      }
+    ],
+    "AddCombo": [
+      {
+        "line": 400,
+        "text": "##EditedFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 407,
+        "text": "##ModFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 414,
+        "text": "##LootableFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 426,
+        "text": "##ContainerFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 438,
+        "text": "##VisibilityFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 451,
+        "text": "##TypeFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 458,
+        "text": "##SourceModFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 470,
+        "text": "##ScopeFilter",
+        "kind": "BL_id"
+      },
+      {
+        "line": 587,
+        "text": "##ActivePreset",
+        "kind": "BL_id"
+      }
+    ],
+    "Hint": [
+      {
+        "line": 523,
+        "text": "Search by name or UUID. Use \\\"quotes\\\" for whole-word search...",
+        "kind": "AUTO"
+      },
+      {
+        "line": 626,
+        "text": "Enter filename here",
+        "kind": "AUTO"
+      },
+      {
+        "line": 646,
+        "text": "Type filename here (e.g., MyPreset or MyPreset.json)",
+        "kind": "AUTO"
+      }
+    ],
+    "TextAssign": [
+      {
+        "line": 635,
+        "text": "Exported '",
+        "kind": "AUTO"
+      },
+      {
+        "line": 638,
+        "text": "Error: Failed to export file.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 651,
+        "text": "Error: Please enter a filename to import.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 658,
+        "text": "Error: A preset named '",
+        "kind": "AUTO"
+      },
+      {
+        "line": 667,
+        "text": "Imported '",
+        "kind": "AUTO"
+      },
+      {
+        "line": 670,
+        "text": "Error: Could not parse file data.",
+        "kind": "AUTO"
+      },
+      {
+        "line": 674,
+        "text": "Error: File not found or is empty. Check the filename.",
+        "kind": "AUTO"
+      }
+    ]
+  },
+  "option_arrays": [
+    {
+      "line": 382,
+      "combo_var": "combo",
+      "options": [
+        "Hidden (0)",
+        "On Hover (1)",
+        "Alt-Highlight (2)"
+      ]
+    },
+    {
+      "line": 401,
+      "combo_var": "editedCombo",
+      "options": [
+        "All",
+        "Edited Only",
+        "Unedited Only"
+      ]
+    },
+    {
+      "line": 408,
+      "combo_var": "modCombo",
+      "options": [
+        "All",
+        "Vanilla Only",
+        "Modded Only"
+      ]
+    },
+    {
+      "line": 415,
+      "combo_var": "lootableCombo",
+      "options": [
+        "All",
+        "Lootable",
+        "Not Lootable"
+      ]
+    },
+    {
+      "line": 427,
+      "combo_var": "containerCombo",
+      "options": [
+        "All",
+        "Containers Only",
+        "Non-Containers"
+      ]
+    },
+    {
+      "line": 439,
+      "combo_var": "visibilityCombo",
+      "options": [
+        "All",
+        "Hidden",
+        "On Hover",
+        "Alt-Highlight"
+      ]
+    },
+    {
+      "line": 471,
+      "combo_var": "scopeCombo",
+      "options": [
+        "All",
+        "Root",
+        "Local"
+      ]
+    }
+  ]
+}

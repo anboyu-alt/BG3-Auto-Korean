@@ -5,7 +5,7 @@ import re
 import threading
 import urllib.request
 import urllib.error
-from typing import List, Tuple, Optional, Callable, TYPE_CHECKING
+from typing import Dict, List, Tuple, Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .logger import CallbackLogger
@@ -442,3 +442,136 @@ def process_xml_file(
     _log(f"    -> 최종: {done}/{total_blocks} 블록 번역 완료")
 
     return header + "\n".join(final_blocks) + footer
+
+
+_PIPE_PLACEHOLDER = "__BG3MCM_PIPE_FB29A8__"
+
+
+def _protect_pipes(text: str) -> str:
+    return text.replace("|", _PIPE_PLACEHOLDER)
+
+
+def _restore_pipes(text: str) -> str:
+    return text.replace(_PIPE_PLACEHOLDER, "|")
+
+
+def translate_text_list(
+    texts: List[str],
+    label: str,
+    api_key: str,
+    log_file: str,
+    cancel_event: Optional[threading.Event] = None,
+    pause_event: Optional[threading.Event] = None,
+    logger: Optional["CallbackLogger"] = None,
+) -> Dict[str, str]:
+    """임의 텍스트 리스트를 영문→한글 dict로 번역해 반환.
+
+    중복 입력은 자동으로 dedup된다. should_skip_translation에 걸리거나 빈 문자열은
+    결과 dict에 포함시키지 않는다(호출자가 원본 그대로 사용). API 실패 시에도
+    해당 항목은 dict에서 빠진다.
+
+    응답 파싱이 `idx|텍스트` 형식을 쓰므로, 텍스트 안의 `|`는 placeholder로
+    보호해 호출하고 결과에서 복원한다.
+    """
+    def _log(text: str) -> None:
+        if logger:
+            logger.info(text)
+        else:
+            print(text)
+
+    unique_texts: Dict[str, int] = {}
+    for raw in texts:
+        stripped = (raw or "").strip()
+        if not stripped:
+            continue
+        if stripped in unique_texts:
+            continue
+        unique_texts[stripped] = len(unique_texts) + 1
+
+    if not unique_texts:
+        return {}
+
+    translated_map: Dict[int, str] = {}
+    need_api: List[Tuple[str, int]] = []
+    stats_cache = stats_skip = stats_glossary = 0
+
+    for text, idx in sorted(unique_texts.items(), key=lambda x: x[1]):
+        if should_skip_translation(text):
+            stats_skip += 1
+            continue
+        if (cached := cache_get(text)) is not None:
+            translated_map[idx] = cached
+            stats_cache += 1
+            continue
+        if (hit := try_glossary_only(text)) is not None:
+            translated_map[idx] = hit
+            cache_put(text, hit)
+            stats_glossary += 1
+            continue
+        need_api.append((text, idx))
+
+    _log(f"    -> [{label}] 고유 {len(unique_texts)} | 캐시 {stats_cache} 글로서리 {stats_glossary} 스킵 {stats_skip} | API {len(need_api)}")
+
+    if need_api:
+        protected_texts = []
+        for text, idx in need_api:
+            protected, mapping = protect_escaped_tags(text)
+            protected = _protect_pipes(protected)
+            protected_texts.append((idx, protected, mapping, text))
+
+        for max_tokens in DOWNSHIFT_TOKEN_STEPS:
+            remaining = [x for x in protected_texts if x[0] not in translated_map]
+            if not remaining:
+                break
+
+            chunks = chunk_by_tokens(remaining, max_tokens)
+            failed_hard = False
+            for cidx, chunk in enumerate(chunks, start=1):
+                if cancel_event and cancel_event.is_set():
+                    raise InterruptedError("user_cancelled")
+                while pause_event and pause_event.is_set():
+                    time.sleep(0.2)
+                    if cancel_event and cancel_event.is_set():
+                        raise InterruptedError("user_cancelled")
+
+                lines = []
+                for idx, protected, _, _ in chunk:
+                    lines.append(f"{idx}|{protected.replace(chr(10), chr(92) + 'n')}")
+
+                raw, status = call_gemini(
+                    "\n".join(lines), label, cidx, len(chunks), api_key,
+                    cancel_event=cancel_event,
+                )
+
+                if raw is None:
+                    if status == "user_cancelled":
+                        raise InterruptedError("user_cancelled")
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        f.write(f"{label} | 청크 {cidx}/{len(chunks)} | {status}\n")
+                    failed_hard = True
+                    continue
+
+                parsed = parse_response(raw, len(chunk))
+                if parsed is None:
+                    failed_hard = True
+                    continue
+
+                for idx, _, mapping, orig in chunk:
+                    if idx in parsed:
+                        t = parsed[idx].replace("\\n", "\n")
+                        t = restore_escaped_tags(t, mapping)
+                        t = _restore_pipes(t)
+                        t = reescape_if_model_unescaped(t)
+                        t = apply_glossary(t)
+                        translated_map[idx] = t
+                        cache_put(orig, t)
+                time.sleep(1.5)
+
+            if not failed_hard:
+                break
+
+    result: Dict[str, str] = {}
+    for text, idx in unique_texts.items():
+        if idx in translated_map:
+            result[text] = translated_map[idx]
+    return result

@@ -62,6 +62,37 @@ def convert_loca_to_xml(divine_path: str, unpacked_path: Path) -> int:
     return converted
 
 
+def convert_xml_to_loca(divine_path: str, unpacked_path: Path) -> int:
+    """*.loca.xml을 *.loca 바이너리로 역변환. 한글화된 .loca.xml의 결과를 게임이
+    읽는 .loca 바이너리에 반영. 변환된 파일 개수 반환.
+
+    같은 디렉토리에 .loca와 .loca.xml이 공존하게 둔다(divine_repack이 둘 다 묶음).
+    게임은 .loca 바이너리를 우선 읽으므로 한글이 표시된다.
+    """
+    xml_files = list(unpacked_path.rglob("*.loca.xml"))
+    converted = 0
+    for xml_file in xml_files:
+        if "localization" not in str(xml_file).lower():
+            continue
+        loca_out = xml_file.with_suffix("")  # .loca.xml → .loca
+        if loca_out.suffix.lower() != ".loca":
+            continue
+        cmd = [
+            divine_path,
+            "-g", "bg3",
+            "-a", "convert-loca",
+            "-s", str(xml_file),
+            "-d", str(loca_out),
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0 and loca_out.exists():
+                converted += 1
+        except Exception:
+            pass
+    return converted
+
+
 def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bool:
     output_pak.parent.mkdir(parents=True, exist_ok=True)
     cmd = [

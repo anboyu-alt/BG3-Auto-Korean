@@ -124,7 +124,15 @@ class SettingsTab(ctk.CTkFrame):
         ctk.CTkCheckBox(
             self, text="Korean 폴더가 이미 있으면 스킵",
             font=font, variable=self._skip_var,
-        ).grid(row=row, column=0, padx=16, pady=8, sticky="w")
+        ).grid(row=row, column=0, padx=16, pady=(8, 2), sticky="w")
+
+        # ── MCM 자동 처리 ──
+        row += 1
+        self._mcm_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            self, text="MCM 의존 모드 자동 처리 (블루프린트·Lua)",
+            font=font, variable=self._mcm_var,
+        ).grid(row=row, column=0, padx=16, pady=(2, 8), sticky="w")
 
         # ── 버튼 + 저장 안내 ──
         row += 1
@@ -153,6 +161,7 @@ class SettingsTab(ctk.CTkFrame):
             self._model2.set(cfg.model_preference[1] if len(cfg.model_preference) > 1 else "gemini-2.5-flash-lite")
         self._cache_picker.set(cfg.cache_path)
         self._skip_var.set(cfg.skip_if_korean_exists)
+        self._mcm_var.set(cfg.mcm_enabled)
         scale_label = self._scale_value_to_label.get(cfg.ui_scale, "자동 (모니터 DPI)")
         self._scale_combo.set(scale_label)
 
@@ -163,6 +172,7 @@ class SettingsTab(ctk.CTkFrame):
         cfg.model_preference = [m for m in [self._model1.get(), self._model2.get()] if m]
         cfg.cache_path = self._cache_picker.get()
         cfg.skip_if_korean_exists = self._skip_var.get()
+        cfg.mcm_enabled = self._mcm_var.get()
         cfg.ui_scale = self._scale_label_to_value.get(self._scale_combo.get(), "auto")
         return cfg
 

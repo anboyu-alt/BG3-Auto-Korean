@@ -9,10 +9,11 @@ if TYPE_CHECKING:
     from .logger import CallbackLogger
 
 from .constants import CONTENT_BLOCK_RE, INPUT_GLOB
-from .divine import check_divine_exe, divine_extract, convert_loca_to_xml, divine_repack
+from .divine import check_divine_exe, divine_extract, convert_loca_to_xml, convert_xml_to_loca, divine_repack
 from .translate import (
     process_xml_file, load_translation_cache, save_translation_cache,
 )
+from .mcm import process_mcm_for_mod
 
 
 def find_localization_folders(root_path: Path) -> List[Path]:
@@ -156,6 +157,7 @@ def process_pak_file(
     cache_file: str,
     work_dir: Optional[Path] = None,
     skip_if_korean_exists: bool = True,
+    mcm_enabled: bool = True,
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
     on_progress: Optional[Callable] = None,
@@ -205,10 +207,52 @@ def process_pak_file(
         logger=logger,
     )
 
-    if not translated:
-        _log("  ⚠️ 번역할 Localization이 없거나 이미 완료됨")
+    mcm_changed = False
+    if mcm_enabled:
+        review_path = output_pak.parent / f"{pak_name}_mcm_review.json"
+        try:
+            mcm_stats = process_mcm_for_mod(
+                temp_dir, api_key, log_file,
+                review_report_path=review_path,
+                cancel_event=cancel_event,
+                pause_event=pause_event,
+                logger=logger,
+            )
+        except InterruptedError:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
+        except Exception as e:
+            _log(f"  ⚠️ MCM 처리 중 오류: {e} — Localization 번역만 적용해 진행")
+            mcm_stats = None
+
+        if mcm_stats:
+            _log(
+                "  🧩 MCM 처리: "
+                f"Loca {mcm_stats.get('loca_translated', 0)}건, "
+                f"미러 {mcm_stats.get('loca_mirrored', 0)}건, "
+                f"블루프린트 {mcm_stats['blueprint_translated']}건, "
+                f"Lua 자동 {mcm_stats['lua_auto']}건, "
+                f"검수 {mcm_stats['lua_review']}건, "
+                f"옵션 {mcm_stats['lua_options']}건"
+            )
+            if mcm_stats.get("report"):
+                _log(f"     검수 리포트: {mcm_stats['report']}")
+            mcm_changed = (
+                mcm_stats.get("loca_translated", 0) > 0
+                or mcm_stats.get("loca_mirrored", 0) > 0
+                or mcm_stats.get("blueprint_translated", 0) > 0
+                or mcm_stats.get("lua_auto", 0) > 0
+            )
+
+    if not translated and not mcm_changed:
+        _log("  ⚠️ 번역할 Localization도 MCM 자산도 없음")
         shutil.rmtree(temp_dir, ignore_errors=True)
         return False
+
+    # 한글화된 .loca.xml을 .loca 바이너리로 역변환 — 게임은 .loca를 우선 읽음
+    relocked = convert_xml_to_loca(divine_path, temp_dir)
+    if relocked > 0:
+        _log(f"  🔄 .loca.xml → .loca 역변환: {relocked}개 파일")
 
     save_translation_cache(cache_file)
 
@@ -234,6 +278,7 @@ def run_batch(
     cache_file: str,
     work_dir: Optional[Path] = None,
     skip_if_korean_exists: bool = True,
+    mcm_enabled: bool = True,
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
     on_progress: Optional[Callable] = None,
@@ -258,6 +303,7 @@ def run_batch(
             target, divine_path, api_key, log_file, cache_file,
             work_dir=work_dir,
             skip_if_korean_exists=skip_if_korean_exists,
+            mcm_enabled=mcm_enabled,
             cancel_event=cancel_event,
             pause_event=pause_event,
             on_progress=on_progress,
@@ -286,6 +332,7 @@ def run_batch(
                 pak_file, divine_path, api_key, log_file, cache_file,
                 work_dir=work_dir,
                 skip_if_korean_exists=skip_if_korean_exists,
+                mcm_enabled=mcm_enabled,
                 cancel_event=cancel_event,
                 pause_event=pause_event,
                 on_progress=on_progress,

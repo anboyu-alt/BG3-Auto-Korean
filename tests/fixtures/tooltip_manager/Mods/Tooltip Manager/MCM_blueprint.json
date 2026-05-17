@@ -1,0 +1,14 @@
+{
+    "SchemaVersion": 1,
+    "Optional": true,
+    "ModName": "Tooltip Manager",
+    "Tabs": [
+        {
+            "TabId": "Tooltip Manager",
+            "TabName": "Tooltip Manager",
+            "Handles": {
+                "NameHandle": "h76690e654f384476b72e5d97653708bf041c"
+            }
+        }
+    ]
+}

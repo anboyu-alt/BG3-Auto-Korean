@@ -1,0 +1,5 @@
+{
+    "RequiredVersion": 20,
+    "ModTable": "Tooltip Manager",
+    "FeatureFlags": ["Lua"]
+}

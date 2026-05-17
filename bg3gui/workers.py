@@ -60,6 +60,7 @@ class TranslationWorker(threading.Thread):
                 cache_file=cache_file,
                 work_dir=work_dir,
                 skip_if_korean_exists=cfg.skip_if_korean_exists,
+                mcm_enabled=cfg.mcm_enabled,
                 cancel_event=self.cancel_event,
                 pause_event=self.pause_event,
                 on_progress=on_progress,

@@ -174,19 +174,20 @@ _XML_ENTITY_RE = re.compile(r"&(?:lt|gt|amp|quot|apos|#\d+|#x[0-9a-fA-F]+);")
 
 
 def escape_unescaped_angle_brackets(text: str) -> str:
-    """번역 결과 텍스트의 raw `<`/`>`를 XML entity로 변환.
+    """번역 결과 텍스트의 raw `<`/`>`/`&`를 XML entity로 변환.
 
-    Gemini가 D&D 게임 용어를 한글로 옮길 때 `<내성 굴림>` 같은 자작 placeholder를
-    raw `<>`로 넣으면 결과 XML이 깨지고 divine의 .loca 변환이 실패한다. 기존
-    `reescape_if_model_unescaped`는 LSTag·br 같이 알려진 태그만 보호하므로, 그
-    외 모든 unescaped angle bracket을 entity로 변환하는 안전망을 제공한다.
+    Gemini가 D&D 텍스트를 한글로 옮길 때:
+    - `<내성 굴림>` 같은 자작 placeholder를 raw `<>`로 넣거나
+    - `[3] & [4]` 같이 단독 `&`를 escape 없이 넣는 경우
 
-    이미 valid entity(`&lt;`, `&gt;`, `&amp;` 등)는 보존한다.
+    결과 XML이 깨지고 게임이 그 모드의 핸들 등록 자체를 실패한다. valid entity
+    (`&lt;`, `&gt;`, `&amp;`, `&quot;`, `&apos;`, `&#nn;` 등)는 보존하고 그 외
+    모든 raw XML 특수문자만 안전하게 entity로 변환한다.
     """
-    if "<" not in text and ">" not in text:
+    if not any(c in text for c in "<>&"):
         return text
 
-    # 1. 모든 valid entity를 임시 placeholder로 보호 (`<`/`>`로 바꾸지 않도록)
+    # 1. 모든 valid entity를 임시 placeholder로 보호
     placeholders: dict = {}
 
     def _stash(m: re.Match) -> str:
@@ -196,8 +197,9 @@ def escape_unescaped_angle_brackets(text: str) -> str:
 
     text = _XML_ENTITY_RE.sub(_stash, text)
 
-    # 2. 남은 raw `<`/`>`를 entity로 변환
-    text = text.replace("<", "&lt;").replace(">", "&gt;")
+    # 2. 남은 raw `&`, `<`, `>`를 entity로 변환 (& 먼저 — 우리가 만든 &lt; 등을
+    #    다시 escape하지 않기 위해. valid entity는 이미 placeholder로 보호됨)
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     # 3. placeholder 복원
     for key, val in placeholders.items():

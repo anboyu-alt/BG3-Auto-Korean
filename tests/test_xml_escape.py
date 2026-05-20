@@ -47,6 +47,29 @@ def test_handles_mixed_escaped_and_raw():
     ET.fromstring(_wrap(result))
 
 
+def test_escapes_raw_ampersand():
+    """Gemini가 [3] & [4] 같은 단독 & 를 raw로 넣은 케이스 (DBW DragonBall Warrior)."""
+    src = "[3] & [4]의 피해를 줍니다."
+    result = escape_unescaped_angle_brackets(src)
+    assert result == "[3] &amp; [4]의 피해를 줍니다."
+    ET.fromstring(_wrap(result))
+
+
+def test_dbw_style_mixed_ampersand_and_lstag():
+    """DBW L103 패턴: LSTag entity + raw & 혼합."""
+    src = "&lt;LSTag 4&gt;드래곤 일족&lt;/LSTag&gt;은 [3] & [4] & &lt;LSTag 3&gt;맹렬한 화상&lt;/LSTag&gt;을 추가합니다."
+    result = escape_unescaped_angle_brackets(src)
+    # 원본 entity 보존
+    assert '&lt;LSTag 4&gt;' in result
+    assert '&lt;/LSTag&gt;' in result
+    # raw & 는 &amp; 로 변환
+    assert '[3] &amp; [4] &amp;' in result
+    # double-escape 안 됨 (&amp;lt; 같은 게 없어야 함)
+    assert '&amp;lt;' not in result
+    assert '&amp;gt;' not in result
+    ET.fromstring(_wrap(result))
+
+
 def test_preserves_numeric_and_named_entities():
     """&amp; &quot; &#39; &#x4eee; 같은 entity도 보존."""
     src = '&amp; &quot;인용&quot; &#39;아포&#39; &#x4eee;'

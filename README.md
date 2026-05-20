@@ -1,4 +1,4 @@
-# BG3 모드 자동 한글화 도구 v3.7
+# BG3 모드 자동 한글화 도구 v3.7.1
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를 Google Gemini AI로 자동 한국어 번역하는 도구입니다.
 설치 필요 없이 **EXE 파일 하나**로 바로 사용할 수 있습니다.
@@ -479,6 +479,9 @@ python -m PyInstaller bg3_autokorean_gui.spec
 ---
 
 ## 업데이트 이력
+
+### v3.7.1
+- **raw `&` 자동 escape**: v3.6/v3.6.1/v3.7의 escape 함수는 `<`/`>`만 처리하고 `&`는 누락. 그 결과 Gemini가 D&D 텍스트에서 `[3] & [4]` 같은 단독 `&`를 한글 결과에 raw로 넣으면 XML이 invalid → 게임이 그 모드의 핸들 등록을 실패해 영문 fallback (DBW DragonBall Warrior 케이스). 이제 `&`도 `&amp;` entity로 자동 변환. valid entity(`&lt;`, `&gt;`, `&amp;`, `&#...;` 등)는 보존.
 
 ### v3.7
 - **`.loca`/`.loca.xml` 정리, `.xml`만 패킹**: BG3 [공식 모더 가이드](https://mod.io/g/baldursgate3/r/adding-localisation-ko)에 따르면 모드는 `Localization/<언어>/*.xml`만으로 작동합니다. 우리가 v3.5에서 추가한 `.loca` 역변환은 사실 불필요했고, 더 심각하게는 원본 PAK에서 추출된 영문 `.loca.xml`이 산출물에 남아 한국어 폴더의 한글 `.xml`을 가리는 경우가 있었습니다(특히 DBW DragonBall Warrior). 이제 패킹 직전에 모든 `.loca` 바이너리와 `.loca.xml` 보조 파일을 정리합니다. `.xml` 짝이 없는 `.loca.xml`은 `.xml`로 rename. 결과 PAK엔 `.xml`만 남아 게임이 정확히 한국어 폴더의 한글을 읽습니다.

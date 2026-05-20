@@ -480,6 +480,9 @@ python -m PyInstaller bg3_autokorean_gui.spec
 
 ## 업데이트 이력
 
+### v3.5.1
+- **`.loca` 역변환 누락 수정**: 일부 모드(DBW DragonBall Warrior, The Viltrumite Race 등)는 Localization 폴더에 `*.loca.xml`이 아닌 그냥 `english.xml` 이름을 사용합니다. v3.5는 `*.loca.xml` 패턴만 변환했기 때문에 이런 모드는 `.loca` 바이너리가 생성되지 않아 게임에서 한글이 표시되지 않았습니다. 이제 `Localization/` 안의 모든 `.xml`을 `.loca`로 역변환합니다.
+
 ### v3.5
 - **MCM(Mod Configuration Menu) 의존 모드 자동 처리**:
     - `MCM_blueprint.json` 평문 필드(`ModName`, `TabName`, `SectionName`, `Name`, `Description`, `Tooltip`, `Label`, `Choices` 등) 자동 번역. `Handles`로 보호된 필드는 건드리지 않고 Localization XML 처리에 위임.

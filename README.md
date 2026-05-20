@@ -1,4 +1,4 @@
-# BG3 모드 자동 한글화 도구 v3.7.1
+# BG3 모드 자동 한글화 도구 v3.7.2
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를 Google Gemini AI로 자동 한국어 번역하는 도구입니다.
 설치 필요 없이 **EXE 파일 하나**로 바로 사용할 수 있습니다.
@@ -479,6 +479,9 @@ python -m PyInstaller bg3_autokorean_gui.spec
 ---
 
 ## 업데이트 이력
+
+### v3.7.2
+- **`CONTENT_BLOCK_RE`의 self-closing 매칭 누락 수정**: `<content ... />` 같은 빈 self-closing 핸들이 직후의 정상 블록과 한 블록으로 합쳐져 번역 위치가 어긋나던 버그(DBW DragonBall Warrior의 빈 핸들 직후에 다음 핸들의 번역이 잘못 끼어들어 XML이 깨짐). 정규식의 `[^>]*` → `[^/>]*`로 self-closing의 `/`를 attribute 영역에서 제외해 별도 매칭. 단위 테스트 4건 추가.
 
 ### v3.7.1
 - **raw `&` 자동 escape**: v3.6/v3.6.1/v3.7의 escape 함수는 `<`/`>`만 처리하고 `&`는 누락. 그 결과 Gemini가 D&D 텍스트에서 `[3] & [4]` 같은 단독 `&`를 한글 결과에 raw로 넣으면 XML이 invalid → 게임이 그 모드의 핸들 등록을 실패해 영문 fallback (DBW DragonBall Warrior 케이스). 이제 `&`도 `&amp;` entity로 자동 변환. valid entity(`&lt;`, `&gt;`, `&amp;`, `&#...;` 등)는 보존.

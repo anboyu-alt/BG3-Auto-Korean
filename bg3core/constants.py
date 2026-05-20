@@ -12,7 +12,14 @@ MODELS_TO_TRY = [
 
 BASE_URL = "https://generativelanguage.googleapis.com"
 TIMEOUT_SEC = 120
-CONTENT_BLOCK_RE = re.compile(r"(<content\b[^>]*>.*?</content>)", re.DOTALL | re.IGNORECASE)
+# self-closing(<content ... />)과 일반(<content ...>...</content>) 둘 다 매칭.
+# self-closing을 별도 매칭으로 분리하지 않으면 그 직후의 다른 블록과 합쳐져
+# inner 추출이 어긋나고 번역 결과 XML이 깨진다 (예: DBW의 빈 핸들 다음에 오는
+# "1 Star Dragonball Found" 번역이 self-closing 직후로 잘못 끼어듦).
+CONTENT_BLOCK_RE = re.compile(
+    r"(<content\b[^/>]*(?:/\s*>|>.*?</content>))",
+    re.DOTALL | re.IGNORECASE,
+)
 CONTENT_INNER_RE = re.compile(r"(<content\b[^>]*>)(.*?)(</content>)", re.DOTALL | re.IGNORECASE)
 ESCAPED_TAGS = {"br", "span"}
 

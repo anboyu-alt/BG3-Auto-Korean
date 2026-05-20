@@ -103,8 +103,13 @@ def convert_xml_to_loca(divine_path: str, unpacked_path: Path) -> int:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             if result.returncode == 0 and loca_out.exists():
                 converted += 1
-        except Exception:
-            pass
+            else:
+                # divine 변환 실패 시 stderr 일부를 출력해 다음 진단에 도움
+                err = (result.stderr or result.stdout or "").strip()
+                if err:
+                    print(f"    ⚠️ .loca 변환 실패: {xml_file.name} — {err.splitlines()[0][:200]}")
+        except Exception as e:
+            print(f"    ⚠️ .loca 변환 예외: {xml_file.name} — {e}")
     return converted
 
 

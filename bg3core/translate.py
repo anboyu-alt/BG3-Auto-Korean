@@ -170,6 +170,41 @@ def reescape_if_model_unescaped(text: str) -> str:
     return text
 
 
+_XML_ENTITY_RE = re.compile(r"&(?:lt|gt|amp|quot|apos|#\d+|#x[0-9a-fA-F]+);")
+
+
+def escape_unescaped_angle_brackets(text: str) -> str:
+    """번역 결과 텍스트의 raw `<`/`>`를 XML entity로 변환.
+
+    Gemini가 D&D 게임 용어를 한글로 옮길 때 `<내성 굴림>` 같은 자작 placeholder를
+    raw `<>`로 넣으면 결과 XML이 깨지고 divine의 .loca 변환이 실패한다. 기존
+    `reescape_if_model_unescaped`는 LSTag·br 같이 알려진 태그만 보호하므로, 그
+    외 모든 unescaped angle bracket을 entity로 변환하는 안전망을 제공한다.
+
+    이미 valid entity(`&lt;`, `&gt;`, `&amp;` 등)는 보존한다.
+    """
+    if "<" not in text and ">" not in text:
+        return text
+
+    # 1. 모든 valid entity를 임시 placeholder로 보호 (`<`/`>`로 바꾸지 않도록)
+    placeholders: dict = {}
+
+    def _stash(m: re.Match) -> str:
+        key = f"\x00ENT{len(placeholders)}\x00"
+        placeholders[key] = m.group(0)
+        return key
+
+    text = _XML_ENTITY_RE.sub(_stash, text)
+
+    # 2. 남은 raw `<`/`>`를 entity로 변환
+    text = text.replace("<", "&lt;").replace(">", "&gt;")
+
+    # 3. placeholder 복원
+    for key, val in placeholders.items():
+        text = text.replace(key, val)
+    return text
+
+
 def get_system_instruction() -> str:
     global _SYSTEM_INSTRUCTION
     if _SYSTEM_INSTRUCTION is None:
@@ -193,6 +228,7 @@ def get_system_instruction() -> str:
 6) 설명, 주석, 마크다운 없이 번역된 줄만 출력한다.
 7) 원문은 영어가 아닐 수도 있다(포르투갈어 등). 어떤 언어든 한국어로 번역한다.
 8) 주문 이름 "Bane"은 신 이름이 아니라 주문으로 쓰인 경우 "액운"으로 번역한다.
+9) 번역 결과 안에 `<...>` 형태의 새로운 태그나 placeholder를 절대 만들지 않는다. 원문에 있는 `&lt;...&gt;` 이스케이프 entity만 그대로 유지하고, 그 외 `<`나 `>` 기호 자체를 한글 결과에 절대 사용하지 않는다. 예: D&D 용어를 "(내성 굴림)"이나 "[내성 굴림]" 같은 일반 괄호로만 표기하고, "&lt;내성 굴림&gt;"이나 "<내성 굴림>" 같은 표기는 금지한다.
 
 {glossary_section}"""
     return _SYSTEM_INSTRUCTION
@@ -417,6 +453,7 @@ def process_xml_file(
                         t = parsed[idx].replace("\\n", "\n")
                         t = restore_escaped_tags(t, mapping)
                         t = reescape_if_model_unescaped(t)
+                        t = escape_unescaped_angle_brackets(t)
                         t = apply_glossary(t)
                         translated_map[idx] = t
                         cache_put(orig, t)
@@ -562,6 +599,7 @@ def translate_text_list(
                         t = restore_escaped_tags(t, mapping)
                         t = _restore_pipes(t)
                         t = reescape_if_model_unescaped(t)
+                        t = escape_unescaped_angle_brackets(t)
                         t = apply_glossary(t)
                         translated_map[idx] = t
                         cache_put(orig, t)

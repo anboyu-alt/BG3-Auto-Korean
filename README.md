@@ -1,4 +1,4 @@
-# BG3 모드 자동 한글화 도구 v3.5.2
+# BG3 모드 자동 한글화 도구 v3.6
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를 Google Gemini AI로 자동 한국어 번역하는 도구입니다.
 설치 필요 없이 **EXE 파일 하나**로 바로 사용할 수 있습니다.
@@ -479,6 +479,12 @@ python -m PyInstaller bg3_autokorean_gui.spec
 ---
 
 ## 업데이트 이력
+
+### v3.6
+- **번역 결과 XML 깨짐 자동 복구**: spell·passive 설명이 많은 모드(예: The Viltrumite Race, DBW DragonBall Warrior 등)에서 Gemini가 D&D 용어를 한글로 옮기며 `<내성 굴림>` 같은 자작 placeholder를 raw `<>`로 결과에 포함시키는 경우가 있었습니다. 이렇게 escape 안 된 angle bracket이 `<content>...</content>` 안에 들어가면 XML 구조가 깨지고 `divine`의 `.loca` 변환이 실패해 게임에서 한글이 표시되지 않았습니다. 이제 번역 직후 자동으로 raw `<`/`>`를 `&lt;`/`&gt;` entity로 변환합니다 (원본의 `&lt;LSTag .../&gt;` 같은 valid entity는 그대로 보존).
+- **Gemini 시스템 프롬프트 보강**: 번역 결과에 `<...>` 형태의 새 태그나 placeholder를 만들지 않도록 규칙 추가. D&D 용어는 일반 괄호로만 표기하도록 명시.
+- **`.loca` 변환 실패 시 진단 로그**: divine의 stderr를 로그에 표시해 다음 진단을 쉽게.
+- 단위 테스트 6건 추가(`tests/test_xml_escape.py`).
 
 ### v3.5.2
 - **미러를 prefix 기반으로 확장**: 원본 PAK에 `english.xml`과 `english.loca`가 모두 들어있는 모드(DBW DragonBall Warrior, The Viltrumite Race 등)는 추출 후 영어 폴더에 `english.xml`과 `english.loca.xml`이 공존합니다. v3.5.1까지의 미러는 같은 **이름** 파일만 덮어써서 `english.loca.xml`은 영문 그대로 남았고, `.loca` 역변환 시 영문 결과가 게임에 적용되는 케이스가 발생했습니다. 이제 베이스 prefix(`english`) 기반 매칭으로 영어 폴더의 `english.xml`·`english.loca.xml`을 한 번에 모두 한글로 덮어씁니다.

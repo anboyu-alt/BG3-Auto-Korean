@@ -1,4 +1,4 @@
-# BG3 모드 자동 한글화 도구 v3.6.1
+# BG3 모드 자동 한글화 도구 v3.7
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를 Google Gemini AI로 자동 한국어 번역하는 도구입니다.
 설치 필요 없이 **EXE 파일 하나**로 바로 사용할 수 있습니다.
@@ -479,6 +479,11 @@ python -m PyInstaller bg3_autokorean_gui.spec
 ---
 
 ## 업데이트 이력
+
+### v3.7
+- **`.loca`/`.loca.xml` 정리, `.xml`만 패킹**: BG3 [공식 모더 가이드](https://mod.io/g/baldursgate3/r/adding-localisation-ko)에 따르면 모드는 `Localization/<언어>/*.xml`만으로 작동합니다. 우리가 v3.5에서 추가한 `.loca` 역변환은 사실 불필요했고, 더 심각하게는 원본 PAK에서 추출된 영문 `.loca.xml`이 산출물에 남아 한국어 폴더의 한글 `.xml`을 가리는 경우가 있었습니다(특히 DBW DragonBall Warrior). 이제 패킹 직전에 모든 `.loca` 바이너리와 `.loca.xml` 보조 파일을 정리합니다. `.xml` 짝이 없는 `.loca.xml`은 `.xml`로 rename. 결과 PAK엔 `.xml`만 남아 게임이 정확히 한국어 폴더의 한글을 읽습니다.
+- `convert_xml_to_loca` 단계 제거 → 처리 시간 단축
+- 단위 테스트 5건 추가(`tests/test_strip_loca.py`)
 
 ### v3.6.1
 - **번역 캐시 적중 시에도 escape 적용**: v3.6의 raw `<>` 자동 escape가 Gemini API 호출 결과에만 적용됐고, 번역 캐시 적중·글로서리 적중 경로엔 누락돼 있었습니다. 기존 사용자의 캐시에 옛 깨진 결과(`<내성 굴림>` 같은 raw `<>`)가 남아 있는 경우 v3.6 EXE를 써도 캐시 적중으로 그대로 결과에 박혀 XML 깨짐 → `.loca` 생성 실패가 계속되었습니다. 이제 모든 경로(캐시·글로서리·API·최종 출력 블록)에 escape를 적용해 어디서 결과가 들어와도 안전합니다.

@@ -113,6 +113,46 @@ def convert_xml_to_loca(divine_path: str, unpacked_path: Path) -> int:
     return converted
 
 
+def strip_loca_artifacts(unpacked_path: Path) -> int:
+    """Localization 폴더 안의 .loca 바이너리와 .loca.xml 보조 파일을 정리.
+
+    BG3 공식 모더 가이드(https://mod.io/g/baldursgate3/r/adding-localisation-ko)에
+    따르면 모드는 `Localization/<언어>/*.xml`만으로 작동한다. .loca 바이너리는
+    기본 게임이 빌드한 결과물이지 모드가 만들 필요가 없다. 오히려 원본 PAK에서
+    추출된 영문 `.loca.xml`이 남아 있으면 게임이 한국어 폴더의 한글 `.xml`을
+    가릴 위험이 있어, 패킹 직전에 깔끔하게 정리한다.
+
+    동작:
+    - 모든 `.loca` 바이너리 삭제
+    - `*.loca.xml`: 같은 stem의 `*.xml`이 있으면 삭제, 없으면 `*.xml`로 rename
+    """
+    removed = 0
+    for loca in unpacked_path.rglob("*.loca"):
+        if not any(part.lower() == "localization" for part in loca.parts):
+            continue
+        try:
+            loca.unlink()
+            removed += 1
+        except Exception:
+            pass
+
+    for loca_xml in list(unpacked_path.rglob("*.loca.xml")):
+        if not any(part.lower() == "localization" for part in loca_xml.parts):
+            continue
+        base = loca_xml.name[: -len(".loca.xml")]
+        sibling_xml = loca_xml.with_name(base + ".xml")
+        try:
+            if sibling_xml.exists():
+                loca_xml.unlink()
+                removed += 1
+            else:
+                loca_xml.rename(sibling_xml)
+                removed += 1
+        except Exception:
+            pass
+    return removed
+
+
 def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bool:
     output_pak.parent.mkdir(parents=True, exist_ok=True)
     cmd = [

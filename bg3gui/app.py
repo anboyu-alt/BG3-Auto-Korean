@@ -22,7 +22,7 @@ class App(ctk.CTk):
         self._cfg: UserConfig = load_config()
         self._current_scale = apply_ui_scale(self._cfg.ui_scale)
 
-        self.title("BG3 모드 자동 한글화 v3.6.1")
+        self.title("BG3 모드 자동 한글화 v3.7")
         self.geometry("860x680")
         self.minsize(720, 500)
 

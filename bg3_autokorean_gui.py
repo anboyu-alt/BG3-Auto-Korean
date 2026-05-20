@@ -1,4 +1,4 @@
-"""BG3 모드 자동 한글화 GUI v3.5.1 — 진입점."""
+"""BG3 모드 자동 한글화 GUI v3.5.2 — 진입점."""
 
 import sys
 from pathlib import Path

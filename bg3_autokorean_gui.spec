@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec — BG3 모드 자동 한글화 GUI v3.6
+# PyInstaller spec — BG3 모드 자동 한글화 GUI v3.6.1
 # 빌드 명령: pyinstaller bg3_autokorean_gui.spec
 
 import sys

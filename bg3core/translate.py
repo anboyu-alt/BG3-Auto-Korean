@@ -384,10 +384,10 @@ def process_xml_file(
             translated_map[idx] = text
             stats_skip += 1
         elif (cached := cache_get(text)) is not None:
-            translated_map[idx] = cached
+            translated_map[idx] = escape_unescaped_angle_brackets(cached)
             stats_cache += 1
         elif (hit := try_glossary_only(text)) is not None:
-            translated_map[idx] = hit
+            translated_map[idx] = escape_unescaped_angle_brackets(hit)
             cache_put(text, hit)
             stats_glossary += 1
         else:
@@ -469,7 +469,7 @@ def process_xml_file(
     for i, (full_block, open_tag, inner, close_tag) in enumerate(all_blocks):
         uid = block_to_unique[i]
         if uid is not None and uid in translated_map:
-            final_blocks.append(f"{open_tag}{translated_map[uid]}{close_tag}")
+            final_blocks.append(f"{open_tag}{escape_unescaped_angle_brackets(translated_map[uid])}{close_tag}")
         else:
             final_blocks.append(full_block)
 
@@ -537,11 +537,11 @@ def translate_text_list(
             stats_skip += 1
             continue
         if (cached := cache_get(text)) is not None:
-            translated_map[idx] = cached
+            translated_map[idx] = escape_unescaped_angle_brackets(cached)
             stats_cache += 1
             continue
         if (hit := try_glossary_only(text)) is not None:
-            translated_map[idx] = hit
+            translated_map[idx] = escape_unescaped_angle_brackets(hit)
             cache_put(text, hit)
             stats_glossary += 1
             continue

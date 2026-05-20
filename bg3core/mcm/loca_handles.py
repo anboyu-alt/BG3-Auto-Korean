@@ -84,15 +84,27 @@ def mirror_korean_to_source_languages(
         korean_xmls = [x for x in korean_dir.iterdir() if x.is_file() and x.suffix.lower() == ".xml"]
         if not korean_xmls:
             continue
+        # Korean의 한글 XML을 베이스 prefix별로 매핑.
+        # 예: 'english.xml' → prefix='english', 'english.loca.xml' → prefix='english'
+        # (둘 다 같은 prefix이므로 한 내용으로 통일됨)
+        prefix_to_content: dict = {}
+        for kx in korean_xmls:
+            p = kx.name.split(".", 1)[0].lower()
+            prefix_to_content.setdefault(p, kx.read_text(encoding="utf-8"))
+
         for lang_dir in loc_dir.iterdir():
             if not lang_dir.is_dir() or lang_dir.name.lower() == "korean":
                 continue
-            for src_xml in korean_xmls:
-                dst_xml = lang_dir / src_xml.name
-                if dst_xml.exists():
-                    dst_xml.write_text(src_xml.read_text(encoding="utf-8"), encoding="utf-8")
+            for dst in lang_dir.iterdir():
+                if not dst.is_file():
+                    continue
+                if dst.suffix.lower() != ".xml":
+                    continue
+                dst_prefix = dst.name.split(".", 1)[0].lower()
+                if dst_prefix in prefix_to_content:
+                    dst.write_text(prefix_to_content[dst_prefix], encoding="utf-8")
                     mirrored += 1
-                    _log(f"    [loca-mirror] {src_xml.name} → {lang_dir.name}/")
+                    _log(f"    [loca-mirror] {lang_dir.name}/{dst.name} ← Korean (prefix={dst_prefix})")
     return mirrored
 
 

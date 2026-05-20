@@ -51,6 +51,26 @@ def test_mirror_only_when_target_has_same_name(tmp_path):
     assert not (root / "Localization" / "French" / "mod_en.xml").exists()
 
 
+def test_mirror_overwrites_both_xml_and_loca_xml_with_same_prefix(tmp_path):
+    """한글 english.xml 하나로 English/english.xml + English/english.loca.xml 둘 다 덮어쓰기.
+
+    DBW/Viltrumite 모드처럼 PAK에 english.xml + english.loca가 모두 있는 경우,
+    추출 후 영어 폴더에 english.xml과 english.loca.xml이 공존한다. 미러는 한글
+    내용으로 둘 다 갱신해야 .loca 역변환 시 한글이 살아남는다.
+    """
+    root = _make_loca(tmp_path, {
+        "English": {
+            "english.xml": "<en/>",
+            "english.loca.xml": "<en-loca/>",
+        },
+        "Korean": {"english.xml": "<ko/>"},
+    })
+    mirrored = mirror_korean_to_source_languages(root)
+    assert mirrored == 2  # english.xml + english.loca.xml 둘 다
+    assert (root / "Localization" / "English" / "english.xml").read_text(encoding="utf-8") == "<ko/>"
+    assert (root / "Localization" / "English" / "english.loca.xml").read_text(encoding="utf-8") == "<ko/>"
+
+
 def test_mirror_multiple_localization_folders(tmp_path):
     """모드 안에 Localization 폴더가 여러 개 있을 때 모두 처리."""
     root = tmp_path / "mod"

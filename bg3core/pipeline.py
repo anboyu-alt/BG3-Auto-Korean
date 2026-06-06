@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .logger import CallbackLogger
 
 from .constants import CONTENT_BLOCK_RE, INPUT_GLOB
-from .divine import check_divine_exe, divine_extract, convert_loca_to_xml, strip_loca_artifacts, divine_repack
+from .divine import check_divine_exe, divine_extract, convert_loca_to_xml, ensure_loca, divine_repack
 from .translate import (
     process_xml_file, load_translation_cache, save_translation_cache,
 )
@@ -249,11 +249,11 @@ def process_pak_file(
         shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
-    # .loca 바이너리와 .loca.xml 보조 파일 제거 — BG3 모드는 .xml만으로 작동.
-    # 영문 .loca/.loca.xml이 남아 있으면 한국어 폴더의 한글 .xml을 가릴 위험이 있다.
-    stripped = strip_loca_artifacts(temp_dir)
-    if stripped > 0:
-        _log(f"  🧹 .loca/.loca.xml 정리: {stripped}개 (.xml만 남김)")
+    # BG3는 표준 구조 모드의 로컬라이제이션을 .loca 바이너리에서 읽는다.
+    # 번역된 xml에서 각 언어 .loca를 생성해 포함시킨다(없는 것만 — 멱등).
+    generated = ensure_loca(divine_path, temp_dir)
+    if generated > 0:
+        _log(f"  🧩 .loca 생성: {generated}개")
 
     save_translation_cache(cache_file)
 

@@ -177,3 +177,20 @@ def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bo
     except Exception as e:
         print(f"    ❌ divine 실행 오류: {e}")
         return False
+
+
+def list_package(divine_path: str, pak_path: Path) -> list:
+    """전체 추출 없이 pak 내부 엔트리 경로 목록만 반환. 실패 시 빈 리스트."""
+    cmd = [
+        divine_path,
+        "-g", "bg3",
+        "-a", "list-package",
+        "-s", str(pak_path),
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            return []
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    except Exception:
+        return []

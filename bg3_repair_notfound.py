@@ -16,7 +16,7 @@ from pathlib import Path
 
 from bg3core.divine import (
     check_divine_exe, divine_extract, convert_loca_to_xml,
-    strip_loca_artifacts, divine_repack, list_package,
+    divine_repack, list_package, ensure_loca, plan_loca_generation,
 )
 from bg3core.repair import repair_xml_text, has_korean_localization, base_stem
 
@@ -45,12 +45,18 @@ def process_pak(pak: Path, divine_path: str, work_root: Path,
         shutil.rmtree(temp_dir, ignore_errors=True)
 
     result = {"name": pak.name, "status": "clean", "reescaped": 0,
-              "backfilled": 0, "unfixable": [], "note": ""}
+              "backfilled": 0, "loca_missing": 0, "loca_generated": 0,
+              "unfixable": [], "note": ""}
     try:
         if not divine_extract(divine_path, pak, temp_dir):
             result["status"] = "failed"
             result["note"] = "extract_failed"
             return result
+
+        # 원본 상태 기준 누락 .loca 개수(멱등성·dry-run 보고용) — convert 전에 측정
+        loca_missing = len(plan_loca_generation(temp_dir))
+        result["loca_missing"] = loca_missing
+
         convert_loca_to_xml(divine_path, temp_dir)
 
         changed_any = False
@@ -75,7 +81,8 @@ def process_pak(pak: Path, divine_path: str, work_root: Path,
                     if not dry_run:
                         kfile.write_text(rr.new_text, encoding="utf-8")
 
-        if not changed_any:
+        needs = changed_any or loca_missing > 0
+        if not needs:
             result["status"] = "clean"
         elif dry_run:
             result["status"] = "would-repair"
@@ -84,9 +91,7 @@ def process_pak(pak: Path, divine_path: str, work_root: Path,
             backup_path = backup_dir / pak.name
             if not backup_path.exists():
                 shutil.copy2(pak, backup_path)
-            strip_loca_artifacts(temp_dir)
-            # 같은 볼륨(pak 폴더)에 산출한 뒤 os.replace로 원자적 교체.
-            # 도중 중단돼도 원본 pak은 손상되지 않고, .repairing 임시본만 남는다(*.pak 글롭에 안 걸림).
+            result["loca_generated"] = ensure_loca(divine_path, temp_dir)
             temp_out = pak.parent / (pak.name + ".repairing")
             try:
                 if divine_repack(divine_path, temp_dir, temp_out):
@@ -117,9 +122,10 @@ def write_report(report_path: Path, summary: dict, results: list):
           "", "## 수리·문제 pak"]
     for r in results:
         if r["status"] in ("repaired", "would-repair", "failed") or r["unfixable"]:
+            loca = r.get("loca_generated") or r.get("loca_missing") or 0
             md.append(f"- **{r['name']}** — {r['status']} "
                       f"(reescaped={r['reescaped']}, backfilled={r['backfilled']}, "
-                      f"unfixable={len(r['unfixable'])}) {r['note']}")
+                      f"loca={loca}, unfixable={len(r['unfixable'])}) {r['note']}")
     report_path.with_suffix(".md").write_text("\n".join(md), encoding="utf-8")
 
 
@@ -160,7 +166,9 @@ def main():
         print(f"[{i}/{len(candidates)}] 🔧 {pak.name}")
         r = process_pak(pak, args.divine, work_root, backup_dir, args.dry_run)
         print(f"    → {r['status']} (reescaped={r['reescaped']}, "
-              f"backfilled={r['backfilled']}, unfixable={len(r['unfixable'])})")
+              f"backfilled={r['backfilled']}, "
+              f"loca={r.get('loca_generated') or r.get('loca_missing') or 0}, "
+              f"unfixable={len(r['unfixable'])})")
         results.append(r)
 
     summary = {
@@ -170,6 +178,8 @@ def main():
         "clean": sum(1 for r in results if r["status"] == "clean"),
         "failed": sum(1 for r in results if r["status"] == "failed"),
         "unfixable_paks": sum(1 for r in results if r["unfixable"]),
+        "loca_generated": sum(r.get("loca_generated", 0) for r in results),
+        "loca_missing": sum(r.get("loca_missing", 0) for r in results),
     }
     write_report(report_path, summary, results)
     print(f"\n✅ 완료. 리포트: {report_path}")

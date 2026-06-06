@@ -7,6 +7,7 @@ Mods 폴더에서 한글화된 pak을 자동 감지해, 깨진/누락 핸들을 
 """
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -84,13 +85,19 @@ def process_pak(pak: Path, divine_path: str, work_root: Path,
             if not backup_path.exists():
                 shutil.copy2(pak, backup_path)
             strip_loca_artifacts(temp_dir)
-            temp_out = work_root / (pak.stem + "_repaired.pak")
-            if divine_repack(divine_path, temp_dir, temp_out):
-                shutil.move(str(temp_out), str(pak))
-                result["status"] = "repaired"
-            else:
-                result["status"] = "failed"
-                result["note"] = "repack_failed"
+            # 같은 볼륨(pak 폴더)에 산출한 뒤 os.replace로 원자적 교체.
+            # 도중 중단돼도 원본 pak은 손상되지 않고, .repairing 임시본만 남는다(*.pak 글롭에 안 걸림).
+            temp_out = pak.parent / (pak.name + ".repairing")
+            try:
+                if divine_repack(divine_path, temp_dir, temp_out):
+                    os.replace(str(temp_out), str(pak))
+                    result["status"] = "repaired"
+                else:
+                    result["status"] = "failed"
+                    result["note"] = "repack_failed"
+            finally:
+                if temp_out.exists():
+                    temp_out.unlink()
     except Exception as e:  # pak 단위 격리
         result["status"] = "failed"
         result["note"] = f"exception: {e}"
@@ -100,6 +107,7 @@ def process_pak(pak: Path, divine_path: str, work_root: Path,
 
 
 def write_report(report_path: Path, summary: dict, results: list):
+    report_path.parent.mkdir(parents=True, exist_ok=True)
     report = {"summary": summary, "paks": results}
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     md = [f"# 수리 리포트 {summary['generated']}", "",

@@ -480,6 +480,10 @@ python -m PyInstaller bg3_autokorean_gui.spec
 
 ## 업데이트 이력
 
+### v3.8
+- **`.loca` 재생성 복원 (v3.7 회귀 수정)**: BG3는 표준 구조(`Localization/<언어>/`) 모드의 로컬라이제이션을 **`.loca` 바이너리에서 읽는다.** v3.7이 `.loca` 생성을 없애고 `.xml`만 남기면서, 게임이 읽을 로컬라이제이션이 없어 다수 모드의 아이템·클래스 이름이 "Not Found"로 표시되는 회귀가 있었다. 이제 패킹 직전에 번역된 각 언어 xml에서 `.loca`를 생성(없는 것만, 멱등)해 포함한다. v3.7이 우려한 "영문이 한글을 가림"은 언어별 `.loca`를 생성하면 발생하지 않음을 게임 실측으로 확인했다.
+- **기존 모드 일괄 복구**: `bg3_repair_notfound.py`가 `.loca` 없는 번역본을 감지해 재생성·재패킹한다(재번역·재다운로드 불필요). `--dry-run`으로 먼저 점검 가능.
+
 ### v3.7.2
 - **`CONTENT_BLOCK_RE`의 self-closing 매칭 누락 수정**: `<content ... />` 같은 빈 self-closing 핸들이 직후의 정상 블록과 한 블록으로 합쳐져 번역 위치가 어긋나던 버그(DBW DragonBall Warrior의 빈 핸들 직후에 다음 핸들의 번역이 잘못 끼어들어 XML이 깨짐). 정규식의 `[^>]*` → `[^/>]*`로 self-closing의 `/`를 attribute 영역에서 제외해 별도 매칭. 단위 테스트 4건 추가.
 
@@ -488,6 +492,8 @@ python -m PyInstaller bg3_autokorean_gui.spec
 
 ### v3.7
 - **`.loca`/`.loca.xml` 정리, `.xml`만 패킹**: BG3 [공식 모더 가이드](https://mod.io/g/baldursgate3/r/adding-localisation-ko)에 따르면 모드는 `Localization/<언어>/*.xml`만으로 작동합니다. 우리가 v3.5에서 추가한 `.loca` 역변환은 사실 불필요했고, 더 심각하게는 원본 PAK에서 추출된 영문 `.loca.xml`이 산출물에 남아 한국어 폴더의 한글 `.xml`을 가리는 경우가 있었습니다(특히 DBW DragonBall Warrior). 이제 패킹 직전에 모든 `.loca` 바이너리와 `.loca.xml` 보조 파일을 정리합니다. `.xml` 짝이 없는 `.loca.xml`은 `.xml`로 rename. 결과 PAK엔 `.xml`만 남아 게임이 정확히 한국어 폴더의 한글을 읽습니다.
+
+> ⚠️ 정정(v3.8): 위 v3.7의 "`.xml`만으로 작동" 판단은 표준 구조 모드에서 틀렸다. 게임은 `.loca`를 읽으므로 v3.8에서 `.loca` 생성을 복원했다.
 - `convert_xml_to_loca` 단계 제거 → 처리 시간 단축
 - 단위 테스트 5건 추가(`tests/test_strip_loca.py`)
 

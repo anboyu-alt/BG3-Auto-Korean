@@ -110,3 +110,54 @@ def test_unparseable_reported_not_written():
     assert r.changed is False
     assert r.new_text == broken
     assert any("parse" in reason for _, reason in r.unfixable)
+
+
+def test_backfill_missing_handle_preserves_version():
+    english = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+               '<content contentuid="h1" version="3">Sword</content>\n'
+               '<content contentuid="h2" version="2">Shield</content>\n'
+               '</contentList>\n')
+    korean = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h1" version="3">검</content>\n'
+              '</contentList>\n')
+    r = repair_xml_text(korean, english)
+    assert r.backfilled == 1
+    assert r.changed is True
+    assert 'contentuid="h2" version="2"' in r.new_text
+    assert "Shield" in r.new_text
+    _assert_valid_xml(r.new_text)
+
+
+def test_backfill_idempotent():
+    english = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+               '<content contentuid="h1" version="1">Sword</content>\n'
+               '<content contentuid="h2" version="1">Shield</content>\n'
+               '</contentList>\n')
+    korean = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h1" version="1">검</content>\n'
+              '</contentList>\n')
+    r1 = repair_xml_text(korean, english)
+    r2 = repair_xml_text(r1.new_text, english)
+    assert r1.backfilled == 1
+    assert r2.changed is False
+
+
+def test_backfill_skips_korean_mirror_source():
+    english = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+               '<content contentuid="h2" version="1">'
+               '이미 한국어로 덮인 긴 텍스트입니다</content>\n</contentList>\n')
+    korean = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h1" version="1">검</content>\n</contentList>\n')
+    r = repair_xml_text(korean, english)
+    assert r.backfilled == 0
+    assert any(uid == "h2" for uid, _ in r.unfixable)
+
+
+def test_no_backfill_when_complete():
+    english = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+               '<content contentuid="h1" version="1">Sword</content>\n</contentList>\n')
+    korean = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h1" version="1">검</content>\n</contentList>\n')
+    r = repair_xml_text(korean, english)
+    assert r.changed is False
+    assert r.backfilled == 0

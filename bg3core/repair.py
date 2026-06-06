@@ -61,6 +61,22 @@ def _reescape_inner(text: str) -> Tuple[str, int]:
     return CONTENT_INNER_RE.sub(repl, text), count
 
 
+_INNER_RE = re.compile(r">([^<]*)</content>", re.IGNORECASE)
+_CONTENTLIST_CLOSE_RE = re.compile(r"</contentList>", re.IGNORECASE)
+
+
+def _looks_korean(block: str) -> bool:
+    """블록 inner가 한국어로 채워졌는지(=영어 원천이 미러로 덮였는지) 휴리스틱."""
+    m = _INNER_RE.search(block)
+    inner = m.group(1) if m else ""
+    clean = re.sub(r"&[a-zA-Z]+;", "", inner)
+    clean = re.sub(r"\s+", "", clean)
+    if len(clean) < 6:
+        return False
+    korean = sum(1 for c in clean if "가" <= c <= "힣")
+    return korean / len(clean) >= 0.3
+
+
 # 안전한 XML 파서: 가능하면 defusedxml(외부 엔티티·billion-laughs 차단), 없으면 stdlib 폴백.
 try:
     from defusedxml.ElementTree import fromstring as _xml_fromstring
@@ -92,5 +108,34 @@ def repair_xml_text(korean_text: str, english_text: Optional[str]) -> RepairResu
                             [("<file>", "xml_parse_failed_after_reescape")])
 
     new_text = reescaped_text
+    backfilled = 0
+    unfixable: List[Tuple[str, str]] = []
+
+    if english_text:
+        kor_blocks = parse_content_blocks(reescaped_text)
+        eng_blocks = parse_content_blocks(english_text)
+        to_insert: List[str] = []
+        for uid, block in eng_blocks.items():
+            if uid in kor_blocks:
+                continue
+            if _looks_korean(block):
+                unfixable.append((uid, "english_source_is_korean_mirror"))
+                continue
+            to_insert.append(block)
+        if to_insert:
+            m = _CONTENTLIST_CLOSE_RE.search(new_text)
+            if m:
+                insertion = "\n" + "\n".join(to_insert) + "\n"
+                candidate = new_text[: m.start()] + insertion + new_text[m.start():]
+                if _is_valid_xml(candidate):
+                    new_text = candidate
+                    backfilled = len(to_insert)
+                else:
+                    unfixable.append(("<file>", "backfill_broke_xml"))
+            else:
+                for block in to_insert:
+                    cm = CONTENTUID_RE.search(block)
+                    unfixable.append((cm.group(1) if cm else "?", "no_contentlist_close_tag"))
+
     changed = new_text != korean_text
-    return RepairResult(new_text, changed, reescaped, 0, [])
+    return RepairResult(new_text, changed, reescaped, backfilled, unfixable)

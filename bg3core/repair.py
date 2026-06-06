@@ -47,18 +47,28 @@ def has_korean_localization(entries: List[str]) -> bool:
 
 
 def _reescape_inner(text: str) -> Tuple[str, int]:
-    """각 <content>의 inner에만 escape_unescaped_angle_brackets 적용. (open/close/uid 보존)"""
+    """각 <content>...</content> 블록의 inner에만 escape를 적용한다.
+
+    블록 단위(CONTENT_BLOCK_RE)로 분리해 개별 처리하므로, 빈 self-closing
+    핸들(<content .../>) 직후에 깨진 블록이 와도 self-closing이 다음 블록의
+    inner를 삼키지 않는다(DBW 빈 핸들 패턴). self-closing 등 inner가 없는
+    블록은 그대로 보존된다.
+    """
     count = 0
 
     def repl(m: "re.Match") -> str:
         nonlocal count
-        open_tag, inner, close = m.group(1), m.group(2), m.group(3)
+        block = m.group(1)
+        im = CONTENT_INNER_RE.match(block)
+        if not im:  # self-closing 등 inner 없는 블록은 그대로 둔다
+            return block
+        open_tag, inner, close = im.group(1), im.group(2), im.group(3)
         fixed = escape_unescaped_angle_brackets(inner)
         if fixed != inner:
             count += 1
         return open_tag + fixed + close
 
-    return CONTENT_INNER_RE.sub(repl, text), count
+    return CONTENT_BLOCK_RE.sub(repl, text), count
 
 
 _INNER_RE = re.compile(r">([^<]*)</content>", re.IGNORECASE)

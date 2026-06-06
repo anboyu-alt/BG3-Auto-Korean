@@ -182,3 +182,17 @@ def test_backfill_broke_xml_reason():
     r = repair_xml_text(korean, english)
     assert r.backfilled == 0
     assert any(reason == "backfill_broke_xml" for _, reason in r.unfixable)
+
+
+def test_reescape_after_self_closing_handle():
+    # 빈 self-closing 핸들 직후에 깨진 블록이 와도 그 블록만 정확히 복구 (DBW 빈 핸들 패턴)
+    broken = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h0" version="1"/>\n'
+              '<content contentuid="h1" version="1">1 <별> 발견</content>\n'
+              '</contentList>\n')
+    r = repair_xml_text(broken, None)
+    assert r.changed is True
+    assert r.reescaped == 1
+    assert "&lt;별&gt;" in r.new_text
+    assert 'contentuid="h0" version="1"/>' in r.new_text  # self-closing 보존
+    _assert_valid_xml(r.new_text)

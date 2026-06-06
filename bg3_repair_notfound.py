@@ -92,6 +92,8 @@ def process_pak(pak: Path, divine_path: str, work_root: Path,
             if not backup_path.exists():
                 shutil.copy2(pak, backup_path)
             result["loca_generated"] = ensure_loca(divine_path, temp_dir)
+            if result["loca_generated"] < loca_missing:
+                result["note"] = f"loca_partial({result['loca_generated']}/{loca_missing})"
             temp_out = pak.parent / (pak.name + ".repairing")
             try:
                 if divine_repack(divine_path, temp_dir, temp_out):

@@ -1,6 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import List, Tuple
 
 
 def check_divine_exe(divine_path: str) -> bool:
@@ -194,3 +195,38 @@ def list_package(divine_path: str, pak_path: Path) -> list:
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
     except Exception:
         return []
+
+
+def plan_loca_generation(unpacked_path: Path) -> List[Tuple[Path, Path]]:
+    """Localization 하위에서 .loca가 없는 xml에 대해 생성할 (src_xml, out_loca) 목록 반환.
+
+    - 출력 규칙: `X.loca.xml` → `X.loca`, `X.xml` → `X.loca`.
+    - dedup: 같은 out_loca가 둘 이상이면 한 번만. `X.xml`(정식)과 `X.loca.xml` 공존 시
+      `X.xml`을 src로 선택.
+    - 멱등: out_loca가 이미 존재하면 제외.
+    순수 함수(divine 비호출) — 단위 테스트 대상.
+    """
+    chosen = {}  # out_key(lower) -> (src_xml, out_loca, is_canonical)
+    for xml in unpacked_path.rglob("*.xml"):
+        if not any(part.lower() == "localization" for part in xml.parts):
+            continue
+        name = xml.name
+        low = name.lower()
+        if low.endswith(".loca.xml"):
+            out = xml.with_name(name[: -len(".loca.xml")] + ".loca")
+            canonical = False
+        else:
+            out = xml.with_name(name[: -len(".xml")] + ".loca")
+            canonical = True
+        key = str(out).lower()
+        prev = chosen.get(key)
+        if prev is None:
+            chosen[key] = (xml, out, canonical)
+        elif canonical and not prev[2]:
+            chosen[key] = (xml, out, canonical)
+    result = []
+    for src, out, _ in chosen.values():
+        if out.exists():
+            continue
+        result.append((src, out))
+    return result

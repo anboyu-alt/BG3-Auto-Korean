@@ -1,5 +1,8 @@
+import xml.etree.ElementTree as ET
+
 from bg3core.repair import (
     RepairResult, parse_content_blocks, base_stem, has_korean_localization,
+    repair_xml_text,
 )
 
 
@@ -43,9 +46,6 @@ def test_repair_result_defaults():
     r = RepairResult("x", False, 0, 0)
     assert r.unfixable == []
 
-
-import xml.etree.ElementTree as ET
-from bg3core.repair import repair_xml_text
 
 VALID = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
          '<content contentuid="h1" version="1">안녕</content>\n</contentList>\n')

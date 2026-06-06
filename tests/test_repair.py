@@ -161,3 +161,24 @@ def test_no_backfill_when_complete():
     r = repair_xml_text(korean, english)
     assert r.changed is False
     assert r.backfilled == 0
+
+
+def test_no_english_source_no_backfill():
+    broken = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h1" version="1">a <b> c</content>\n'
+              '</contentList>\n')
+    r = repair_xml_text(broken, None)
+    assert r.backfilled == 0
+    assert r.unfixable == []
+    _assert_valid_xml(r.new_text)
+
+
+def test_backfill_broke_xml_reason():
+    # English 원천 블록 inner에 raw '<'가 있어 삽입 시 XML이 깨지는 경우
+    english = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+               '<content contentuid="h2" version="1">A < B</content>\n</contentList>\n')
+    korean = ('<?xml version="1.0" encoding="utf-8"?>\n<contentList>\n'
+              '<content contentuid="h1" version="1">검</content>\n</contentList>\n')
+    r = repair_xml_text(korean, english)
+    assert r.backfilled == 0
+    assert any(reason == "backfill_broke_xml" for _, reason in r.unfixable)

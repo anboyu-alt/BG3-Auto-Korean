@@ -71,10 +71,12 @@ def _looks_korean(block: str) -> bool:
     inner = m.group(1) if m else ""
     clean = re.sub(r"&[a-zA-Z]+;", "", inner)
     clean = re.sub(r"\s+", "", clean)
+    # 매우 짧은 문자열은 영어 'OK'/'Yes'와 한글 '검'을 신뢰성 있게 구분하기 어렵다.
+    # 6자 미만은 오판 위험이 커서 '한국어 아님'으로 보고 backfill을 허용한다(최악도 영어 표시).
     if len(clean) < 6:
         return False
-    korean = sum(1 for c in clean if "가" <= c <= "힣")
-    return korean / len(clean) >= 0.3
+    hangul_count = sum(1 for c in clean if "가" <= c <= "힣")
+    return hangul_count / len(clean) >= 0.3
 
 
 # 안전한 XML 파서: 가능하면 defusedxml(외부 엔티티·billion-laughs 차단), 없으면 stdlib 폴백.
@@ -123,7 +125,9 @@ def repair_xml_text(korean_text: str, english_text: Optional[str]) -> RepairResu
                 continue
             to_insert.append(block)
         if to_insert:
-            m = _CONTENTLIST_CLOSE_RE.search(new_text)
+            # 유효 XML이라 루트 contentList는 하나지만, 방어적으로 마지막 </contentList> 앞에 삽입.
+            matches = list(_CONTENTLIST_CLOSE_RE.finditer(new_text))
+            m = matches[-1] if matches else None
             if m:
                 insertion = "\n" + "\n".join(to_insert) + "\n"
                 candidate = new_text[: m.start()] + insertion + new_text[m.start():]

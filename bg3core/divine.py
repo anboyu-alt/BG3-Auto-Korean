@@ -230,3 +230,31 @@ def plan_loca_generation(unpacked_path: Path) -> List[Tuple[Path, Path]]:
             continue
         result.append((src, out))
     return result
+
+
+def ensure_loca(divine_path: str, unpacked_path: Path) -> int:
+    """Localization xml 중 .loca가 없는 것을 convert-loca로 생성. 생성 개수 반환.
+
+    plan_loca_generation으로 대상을 고른 뒤 각각 변환한다(이미 .loca 있으면 스킵 → 멱등).
+    BG3는 표준 구조 모드의 로컬라이제이션을 .loca 바이너리에서 읽으므로 필수.
+    """
+    generated = 0
+    for src_xml, out_loca in plan_loca_generation(unpacked_path):
+        cmd = [
+            divine_path,
+            "-g", "bg3",
+            "-a", "convert-loca",
+            "-s", str(src_xml),
+            "-d", str(out_loca),
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0 and out_loca.exists():
+                generated += 1
+            else:
+                err = (result.stderr or result.stdout or "").strip()
+                if err:
+                    print(f"    ⚠️ .loca 생성 실패: {src_xml.name} — {err.splitlines()[0][:200]}")
+        except Exception as e:
+            print(f"    ⚠️ .loca 생성 예외: {src_xml.name} — {e}")
+    return generated

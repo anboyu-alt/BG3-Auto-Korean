@@ -122,7 +122,7 @@ class ReviewerTab(ctk.CTkFrame):
                 if not data:
                     messagebox.showerror("오류", "PAK 언팩에 실패했습니다.")
                     return
-                review_files = load_review_files(self._temp_dir)
+                review_files = load_review_files(self._temp_dir, target_folder=self._cfg.target_language if self._cfg else "Korean")
                 if not review_files:
                     messagebox.showwarning("항목 없음", "검수할 번역 항목을 찾지 못했습니다.\n(Korean 폴더가 있는지 확인하세요)")
                     return
@@ -171,16 +171,16 @@ class ReviewerTab(ctk.CTkFrame):
         self._en_box.insert("1.0", entry.english)
         self._en_box.configure(state="disabled")
         self._kr_box.delete("1.0", "end")
-        self._kr_box.insert("1.0", entry.display_korean)
+        self._kr_box.insert("1.0", entry.display_target)
 
     def _commit_current(self) -> None:
         if not self._current_entries:
             return
         entry = self._current_entries[self._current_idx]
         new_text = self._kr_box.get("1.0", "end-1c")
-        if new_text != entry.korean:
+        if new_text != entry.target_text:
             entry.modified = True
-            entry.new_korean = new_text
+            entry.new_target = new_text
 
     def _next(self) -> None:
         self._commit_current()

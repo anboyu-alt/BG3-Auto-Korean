@@ -9,21 +9,21 @@ from .constants import CONTENT_INNER_RE, CONTENTUID_RE
 class Entry:
     contentuid: str
     english: str
-    korean: str
+    target_text: str
     modified: bool = False
-    new_korean: str = ""
+    new_target: str = ""
 
     @property
-    def display_korean(self) -> str:
-        return self.new_korean if self.modified else self.korean
+    def display_target(self) -> str:
+        return self.new_target if self.modified else self.target_text
 
 
 @dataclass
 class ReviewFile:
     filename: str
     entries: List[Entry]
-    korean_xml_path: Path
-    korean_xml_original: str
+    target_xml_path: Path
+    target_xml_original: str
 
 
 def extract_entries_from_xml(xml_text: str) -> Dict[str, str]:
@@ -38,7 +38,7 @@ def extract_entries_from_xml(xml_text: str) -> Dict[str, str]:
     return entries
 
 
-def load_review_files(unpacked_path: Path) -> List[ReviewFile]:
+def load_review_files(unpacked_path: Path, target_folder: str = "Korean") -> List[ReviewFile]:
     review_files = []
 
     for loc_dir in unpacked_path.rglob("Localization"):
@@ -46,19 +46,19 @@ def load_review_files(unpacked_path: Path) -> List[ReviewFile]:
             continue
 
         english_dir = None
-        korean_dir = None
+        target_dir = None
         for sub in loc_dir.iterdir():
             if sub.is_dir():
                 if sub.name.lower() == "english":
                     english_dir = sub
-                elif sub.name.lower() == "korean":
-                    korean_dir = sub
+                elif sub.name.lower() == target_folder.lower():
+                    target_dir = sub
 
-        if not english_dir or not korean_dir:
+        if not english_dir or not target_dir:
             continue
 
-        for kr_xml in sorted(korean_dir.glob("*.xml")):
-            en_xml = english_dir / kr_xml.name
+        for target_xml in sorted(target_dir.glob("*.xml")):
+            en_xml = english_dir / target_xml.name
             if not en_xml.exists():
                 en_xmls = list(english_dir.glob("*.xml"))
                 if len(en_xmls) == 1:
@@ -68,44 +68,44 @@ def load_review_files(unpacked_path: Path) -> List[ReviewFile]:
 
             try:
                 en_text = en_xml.read_text(encoding="utf-8", errors="replace")
-                kr_text = kr_xml.read_text(encoding="utf-8", errors="replace")
+                target_text = target_xml.read_text(encoding="utf-8", errors="replace")
             except Exception:
                 continue
 
             en_entries = extract_entries_from_xml(en_text)
-            kr_entries = extract_entries_from_xml(kr_text)
+            target_entries = extract_entries_from_xml(target_text)
 
-            if not en_entries or not kr_entries:
+            if not en_entries or not target_entries:
                 continue
 
             entries = []
             for uid, en_inner in en_entries.items():
-                kr_inner = kr_entries.get(uid, "")
-                if not kr_inner:
+                target_inner = target_entries.get(uid, "")
+                if not target_inner:
                     continue
                 entries.append(Entry(
                     contentuid=uid,
                     english=en_inner,
-                    korean=kr_inner,
+                    target_text=target_inner,
                 ))
 
             if entries:
                 review_files.append(ReviewFile(
-                    filename=kr_xml.name,
+                    filename=target_xml.name,
                     entries=entries,
-                    korean_xml_path=kr_xml,
-                    korean_xml_original=kr_text,
+                    target_xml_path=target_xml,
+                    target_xml_original=target_text,
                 ))
 
     return review_files
 
 
 def save_modified_xml(review_file: ReviewFile) -> None:
-    modified_entries = {e.contentuid: e.new_korean for e in review_file.entries if e.modified}
+    modified_entries = {e.contentuid: e.new_target for e in review_file.entries if e.modified}
     if not modified_entries:
         return
 
-    xml_text = review_file.korean_xml_original
+    xml_text = review_file.target_xml_original
 
     def replace_content(match):
         open_tag = match.group(1)
@@ -116,4 +116,4 @@ def save_modified_xml(review_file: ReviewFile) -> None:
         return match.group(0)
 
     new_xml = CONTENT_INNER_RE.sub(replace_content, xml_text)
-    review_file.korean_xml_path.write_text(new_xml, encoding="utf-8")
+    review_file.target_xml_path.write_text(new_xml, encoding="utf-8")

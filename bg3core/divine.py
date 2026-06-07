@@ -1,7 +1,19 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from .logger import CallbackLogger
+
+# divine CLI 상수 — 모든 subprocess 호출이 이 값을 참조한다.
+# v5.0 다국어 대응 시 파라미터화 지점.
+_GAME = "bg3"
+_COMPRESS = "lz4"
+_LANG_ALL = "all"
+_TIMEOUT_SHORT = 60    # 단일 .loca 변환
+_TIMEOUT_MED = 120     # list-package
+_TIMEOUT_LONG = 300    # extract / repack
 
 
 def check_divine_exe(divine_path: str) -> bool:
@@ -17,14 +29,14 @@ def divine_extract(divine_path: str, pak_path: Path, dest_folder: Path) -> bool:
     dest_folder.mkdir(parents=True, exist_ok=True)
     cmd = [
         divine_path,
-        "-g", "bg3",
+        "-g", _GAME,
         "-a", "extract-package",
         "-s", str(pak_path),
         "-d", str(dest_folder),
-        "-l", "all",
+        "-l", _LANG_ALL,
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_LONG)
         if result.returncode != 0:
             print(f"    ❌ divine 언팩 실패 (exit code {result.returncode})")
             if result.stderr:
@@ -32,14 +44,25 @@ def divine_extract(divine_path: str, pak_path: Path, dest_folder: Path) -> bool:
             return False
         return True
     except subprocess.TimeoutExpired:
-        print("    ❌ divine 언팩 타임아웃 (5분 초과)")
+        print(f"    ❌ divine 언팩 타임아웃 ({_TIMEOUT_LONG // 60}분 초과)")
         return False
     except Exception as e:
         print(f"    ❌ divine 실행 오류: {e}")
         return False
 
 
-def convert_loca_to_xml(divine_path: str, unpacked_path: Path) -> int:
+def convert_loca_to_xml(
+    divine_path: str,
+    unpacked_path: Path,
+    logger: Optional["CallbackLogger"] = None,
+) -> int:
+    """Localization 폴더 안의 *.loca 바이너리를 *.loca.xml로 변환. 변환 개수 반환."""
+    def _warn(msg: str) -> None:
+        if logger:
+            logger.warning(msg)
+        else:
+            print(msg)
+
     loca_files = list(unpacked_path.rglob("*.loca"))
     converted = 0
     for loca_file in loca_files:
@@ -48,124 +71,37 @@ def convert_loca_to_xml(divine_path: str, unpacked_path: Path) -> int:
         xml_out = loca_file.with_suffix(".loca.xml")
         cmd = [
             divine_path,
-            "-g", "bg3",
+            "-g", _GAME,
             "-a", "convert-loca",
             "-s", str(loca_file),
             "-d", str(xml_out),
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_SHORT)
             if result.returncode == 0 and xml_out.exists():
                 loca_file.unlink()
                 converted += 1
-        except Exception:
-            pass
-    return converted
-
-
-def convert_xml_to_loca(divine_path: str, unpacked_path: Path) -> int:
-    """Localization 폴더 안의 모든 *.xml(또는 *.loca.xml)을 *.loca 바이너리로
-    역변환. 한글화된 XML의 결과를 게임이 읽는 .loca 바이너리에 반영.
-    변환된 파일 개수 반환.
-
-    파일명 패턴이 두 가지로 갈리는데 모두 처리:
-    - `english.loca.xml` (CRS 같은 모드) → `english.loca`
-    - `english.xml` (DBW/Viltrumite 같은 모드) → `english.loca`
-
-    같은 디렉토리에 .loca와 .xml이 공존하게 둔다(divine_repack이 둘 다 묶음).
-    게임은 .loca 바이너리를 우선 읽으므로 한글이 표시된다.
-    """
-    converted = 0
-    seen_outputs: set = set()
-    for xml_file in unpacked_path.rglob("*.xml"):
-        # Localization 폴더 안의 XML만 처리(다른 lsx/메타 XML 보호)
-        if "localization" not in str(xml_file).lower():
-            continue
-        name_lower = xml_file.name.lower()
-        if name_lower.endswith(".loca.xml"):
-            loca_out = xml_file.with_suffix("")  # .loca.xml → .loca
-        else:
-            loca_out = xml_file.with_suffix(".loca")  # english.xml → english.loca
-        if loca_out.suffix.lower() != ".loca":
-            continue
-        # .loca.xml과 .xml이 같은 베이스 이름이면 한 번만 변환
-        out_key = str(loca_out).lower()
-        if out_key in seen_outputs:
-            continue
-        seen_outputs.add(out_key)
-        cmd = [
-            divine_path,
-            "-g", "bg3",
-            "-a", "convert-loca",
-            "-s", str(xml_file),
-            "-d", str(loca_out),
-        ]
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            if result.returncode == 0 and loca_out.exists():
-                converted += 1
             else:
-                # divine 변환 실패 시 stderr 일부를 출력해 다음 진단에 도움
                 err = (result.stderr or result.stdout or "").strip()
                 if err:
-                    print(f"    ⚠️ .loca 변환 실패: {xml_file.name} — {err.splitlines()[0][:200]}")
+                    _warn(f"    ⚠️ .loca → XML 변환 실패: {loca_file.name} — {err.splitlines()[0][:200]}")
         except Exception as e:
-            print(f"    ⚠️ .loca 변환 예외: {xml_file.name} — {e}")
+            _warn(f"    ⚠️ .loca → XML 변환 예외: {loca_file.name} — {e}")
     return converted
-
-
-def strip_loca_artifacts(unpacked_path: Path) -> int:
-    """Localization 폴더 안의 .loca 바이너리와 .loca.xml 보조 파일을 정리.
-
-    BG3 공식 모더 가이드(https://mod.io/g/baldursgate3/r/adding-localisation-ko)에
-    따르면 모드는 `Localization/<언어>/*.xml`만으로 작동한다. .loca 바이너리는
-    기본 게임이 빌드한 결과물이지 모드가 만들 필요가 없다. 오히려 원본 PAK에서
-    추출된 영문 `.loca.xml`이 남아 있으면 게임이 한국어 폴더의 한글 `.xml`을
-    가릴 위험이 있어, 패킹 직전에 깔끔하게 정리한다.
-
-    동작:
-    - 모든 `.loca` 바이너리 삭제
-    - `*.loca.xml`: 같은 stem의 `*.xml`이 있으면 삭제, 없으면 `*.xml`로 rename
-    """
-    removed = 0
-    for loca in unpacked_path.rglob("*.loca"):
-        if not any(part.lower() == "localization" for part in loca.parts):
-            continue
-        try:
-            loca.unlink()
-            removed += 1
-        except Exception:
-            pass
-
-    for loca_xml in list(unpacked_path.rglob("*.loca.xml")):
-        if not any(part.lower() == "localization" for part in loca_xml.parts):
-            continue
-        base = loca_xml.name[: -len(".loca.xml")]
-        sibling_xml = loca_xml.with_name(base + ".xml")
-        try:
-            if sibling_xml.exists():
-                loca_xml.unlink()
-                removed += 1
-            else:
-                loca_xml.rename(sibling_xml)
-                removed += 1
-        except Exception:
-            pass
-    return removed
 
 
 def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bool:
     output_pak.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         divine_path,
-        "-g", "bg3",
+        "-g", _GAME,
         "-a", "create-package",
         "-s", str(source_folder),
         "-d", str(output_pak),
-        "-c", "lz4",
+        "-c", _COMPRESS,
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_LONG)
         if result.returncode != 0:
             print(f"    ❌ divine 리팩 실패 (exit code {result.returncode})")
             if result.stderr:
@@ -173,7 +109,7 @@ def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bo
             return False
         return True
     except subprocess.TimeoutExpired:
-        print("    ❌ divine 리팩 타임아웃 (5분 초과)")
+        print(f"    ❌ divine 리팩 타임아웃 ({_TIMEOUT_LONG // 60}분 초과)")
         return False
     except Exception as e:
         print(f"    ❌ divine 실행 오류: {e}")
@@ -184,12 +120,12 @@ def list_package(divine_path: str, pak_path: Path) -> list:
     """전체 추출 없이 pak 내부 엔트리 경로 목록만 반환. 실패 시 빈 리스트."""
     cmd = [
         divine_path,
-        "-g", "bg3",
+        "-g", _GAME,
         "-a", "list-package",
         "-s", str(pak_path),
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_MED)
         if result.returncode != 0:
             return []
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
@@ -197,13 +133,17 @@ def list_package(divine_path: str, pak_path: Path) -> list:
         return []
 
 
-def plan_loca_generation(unpacked_path: Path) -> List[Tuple[Path, Path]]:
-    """Localization 하위에서 .loca가 없는 xml에 대해 생성할 (src_xml, out_loca) 목록 반환.
+def plan_loca_generation(
+    unpacked_path: Path,
+    force: bool = False,
+) -> List[Tuple[Path, Path]]:
+    """Localization 하위에서 .loca를 생성해야 할 (src_xml, out_loca) 목록 반환.
 
     - 출력 규칙: `X.loca.xml` → `X.loca`, `X.xml` → `X.loca`.
     - dedup: 같은 out_loca가 둘 이상이면 한 번만. `X.xml`(정식)과 `X.loca.xml` 공존 시
       `X.xml`을 src로 선택.
-    - 멱등: out_loca가 이미 존재하면 제외.
+    - force=False(기본): out_loca가 이미 존재하면 제외(멱등) — pipeline 용.
+    - force=True: 기존 .loca도 재생성 대상에 포함 — 검수 저장 후 강제 반영 시 사용.
     순수 함수(divine 비호출) — 단위 테스트 대상.
     """
     chosen = {}  # out_key(lower) -> (src_xml, out_loca, is_canonical)
@@ -226,35 +166,48 @@ def plan_loca_generation(unpacked_path: Path) -> List[Tuple[Path, Path]]:
             chosen[key] = (xml, out, canonical)
     result = []
     for src, out, _ in chosen.values():
-        if out.exists():
+        if not force and out.exists():
             continue
         result.append((src, out))
     return result
 
 
-def ensure_loca(divine_path: str, unpacked_path: Path) -> int:
-    """Localization xml 중 .loca가 없는 것을 convert-loca로 생성. 생성 개수 반환.
+def ensure_loca(
+    divine_path: str,
+    unpacked_path: Path,
+    force: bool = False,
+    logger: Optional["CallbackLogger"] = None,
+) -> int:
+    """Localization xml에서 .loca 바이너리를 생성. 생성 개수 반환.
 
-    plan_loca_generation으로 대상을 고른 뒤 각각 변환한다(이미 .loca 있으면 스킵 → 멱등).
+    plan_loca_generation으로 대상을 고른 뒤 각각 변환한다.
+    force=False(기본): 이미 .loca 있으면 스킵(멱등) — pipeline 용.
+    force=True: 기존 .loca도 재생성 — 검수 저장 후 편집 내용 반영 시 사용.
     BG3는 표준 구조 모드의 로컬라이제이션을 .loca 바이너리에서 읽으므로 필수.
     """
+    def _warn(msg: str) -> None:
+        if logger:
+            logger.warning(msg)
+        else:
+            print(msg)
+
     generated = 0
-    for src_xml, out_loca in plan_loca_generation(unpacked_path):
+    for src_xml, out_loca in plan_loca_generation(unpacked_path, force=force):
         cmd = [
             divine_path,
-            "-g", "bg3",
+            "-g", _GAME,
             "-a", "convert-loca",
             "-s", str(src_xml),
             "-d", str(out_loca),
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_SHORT)
             if result.returncode == 0 and out_loca.exists():
                 generated += 1
             else:
                 err = (result.stderr or result.stdout or "").strip()
                 if err:
-                    print(f"    ⚠️ .loca 생성 실패: {src_xml.name} — {err.splitlines()[0][:200]}")
+                    _warn(f"    ⚠️ .loca 생성 실패: {src_xml.name} — {err.splitlines()[0][:200]}")
         except Exception as e:
-            print(f"    ⚠️ .loca 생성 예외: {src_xml.name} — {e}")
+            _warn(f"    ⚠️ .loca 생성 예외: {src_xml.name} — {e}")
     return generated

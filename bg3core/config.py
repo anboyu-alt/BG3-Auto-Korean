@@ -5,15 +5,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
+from .constants import MODELS_TO_TRY
+
 
 @dataclass
 class UserConfig:
     api_key: str = ""
     divine_exe_path: str = ""
-    model_preference: List[str] = field(default_factory=lambda: [
-        "gemini-2.5-flash-lite",
-        "gemini-2.5-flash",
-    ])
+    model_preference: List[str] = field(default_factory=lambda: list(MODELS_TO_TRY))
     cache_path: str = ""
     log_dir: str = ""
     last_pak_dir: str = ""

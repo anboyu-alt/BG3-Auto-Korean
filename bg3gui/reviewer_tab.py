@@ -10,7 +10,7 @@ import customtkinter as ctk
 from tkinter import messagebox, ttk
 
 from bg3core.config import UserConfig
-from bg3core.divine import divine_extract, divine_repack, convert_xml_to_loca
+from bg3core.divine import divine_extract, divine_repack, ensure_loca
 from bg3core.reviewer import Entry, ReviewFile, load_review_files, save_modified_xml
 from .widgets.path_picker import PathPicker
 
@@ -206,9 +206,8 @@ class ReviewerTab(ctk.CTkFrame):
             save_modified_xml(rf)
 
         # BG3는 .loca 바이너리를 읽으므로, 편집된 xml에서 .loca를 강제 재생성한다.
-        # (검수는 기존 번역을 수정하므로 기존 .loca가 stale일 수 있어 ensure_loca의
-        #  '있으면 스킵'이 아니라 전부 재생성하는 convert_xml_to_loca를 쓴다.)
-        convert_xml_to_loca(self._cfg.divine_exe_path, self._temp_dir)
+        # force=True: 검수는 기존 번역을 수정하므로 기존 .loca도 덮어써야 한다.
+        ensure_loca(self._cfg.divine_exe_path, self._temp_dir, force=True)
 
         stem = self._pak_path.stem
         out_pak = self._pak_path.parent / f"{stem}_Reviewed.pak"

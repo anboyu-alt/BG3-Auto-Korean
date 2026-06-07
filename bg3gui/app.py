@@ -5,6 +5,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from bg3core.config import UserConfig, get_default_cache_path, load_config, save_config
+from bg3core.constants import __version__
 from .i18n import apply_ui_scale, configure_default_font, enable_dpi_awareness
 from .settings_tab import SettingsTab
 from .translate_tab import TranslateTab
@@ -22,7 +23,7 @@ class App(ctk.CTk):
         self._cfg: UserConfig = load_config()
         self._current_scale = apply_ui_scale(self._cfg.ui_scale)
 
-        self.title("BG3 모드 자동 한글화 v3.8")
+        self.title(f"BG3 모드 자동 한글화 v{__version__}")
         self.geometry("860x680")
         self.minsize(720, 500)
 

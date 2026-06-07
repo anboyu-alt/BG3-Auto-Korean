@@ -189,7 +189,7 @@ def process_pak_file(
             shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
-    loca_count = convert_loca_to_xml(divine_path, temp_dir)
+    loca_count = convert_loca_to_xml(divine_path, temp_dir, logger=logger)
     if loca_count > 0:
         _log(f"  🔄 .loca → XML 변환: {loca_count}개 파일")
 
@@ -251,7 +251,7 @@ def process_pak_file(
 
     # BG3는 표준 구조 모드의 로컬라이제이션을 .loca 바이너리에서 읽는다.
     # 번역된 xml에서 각 언어 .loca를 생성해 포함시킨다(없는 것만 — 멱등).
-    generated = ensure_loca(divine_path, temp_dir)
+    generated = ensure_loca(divine_path, temp_dir, logger=logger)
     if generated > 0:
         _log(f"  🧩 .loca 생성: {generated}개")
 

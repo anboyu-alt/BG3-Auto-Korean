@@ -17,6 +17,11 @@ translation_errors.txt
 # 임시 폴더
 _pak_temp/
 
+# 진단 산출물 (커밋 금지)
+_diag2/
+repair_report_*.json
+repair_report_*.md
+
 # 설정 (개인 API 키 포함)
 # %APPDATA%\BG3-Auto-Korean\config.json 은 추적하지 않음
 

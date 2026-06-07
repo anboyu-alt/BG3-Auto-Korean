@@ -1,5 +1,7 @@
 import re
 
+__version__ = "4.0"
+
 INPUT_GLOB = "*.xml"
 
 MAX_TOKENS_PER_CHUNK = 4000

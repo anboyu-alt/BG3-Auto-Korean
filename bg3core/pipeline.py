@@ -203,6 +203,7 @@ def process_pak_file(
         try:
             mcm_stats = process_mcm_for_mod(
                 temp_dir, api_key, log_file,
+                target_profile=target_profile,
                 review_report_path=review_path,
                 cancel_event=cancel_event,
                 pause_event=pause_event,

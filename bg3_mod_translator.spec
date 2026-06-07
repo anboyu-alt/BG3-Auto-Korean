@@ -7,17 +7,23 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 
 block_cipher = None
 
-pyside6_datas, pyside6_binaries, pyside6_hiddenimports = collect_all("PySide6")
+# 필요한 Qt 모듈만 선택적으로 수집 (QtWebEngine 등 불필요한 모듈 제외)
+_qt_datas, _qt_binaries, _qt_hiddenimports = [], [], []
+for mod in ("PySide6.QtWidgets", "PySide6.QtCore", "PySide6.QtGui"):
+    d, b, h = collect_all(mod)
+    _qt_datas += d
+    _qt_binaries += b
+    _qt_hiddenimports += h
 
 a = Analysis(
     ["bg3_mod_translator.py"],
     pathex=["."],
-    binaries=pyside6_binaries,
+    binaries=_qt_binaries,
     datas=(
-        pyside6_datas
+        _qt_datas
         + [("bg3core", "bg3core"), ("bg3gui", "bg3gui")]
     ),
-    hiddenimports=pyside6_hiddenimports + [
+    hiddenimports=_qt_hiddenimports + [
         "PySide6.QtWidgets",
         "PySide6.QtCore",
         "PySide6.QtGui",
@@ -27,7 +33,15 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["customtkinter", "tkinter", "PIL"],
+    excludes=[
+        "customtkinter", "tkinter", "PIL",
+        "PySide6.QtWebEngine", "PySide6.QtWebEngineCore",
+        "PySide6.QtWebEngineWidgets", "PySide6.QtMultimedia",
+        "PySide6.Qt3DCore", "PySide6.Qt3DRender", "PySide6.QtCharts",
+        "PySide6.QtDataVisualization", "PySide6.QtQuick", "PySide6.QtQml",
+        "PySide6.QtNetwork", "PySide6.QtBluetooth", "PySide6.QtSensors",
+        "PySide6.QtLocation", "PySide6.QtPositioning", "PySide6.QtPdf",
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

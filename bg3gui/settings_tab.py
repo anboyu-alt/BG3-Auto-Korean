@@ -1,14 +1,19 @@
-import webbrowser
-from typing import Callable, Optional
+from __future__ import annotations
+import threading
+from typing import Callable
 
-import customtkinter as ctk
-from tkinter import messagebox
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+    QPushButton, QComboBox, QCheckBox, QScrollArea, QFrame,
+    QMessageBox,
+)
+from PySide6.QtCore import Qt, QTimer
 
 from bg3core.config import UserConfig, save_config
-from bg3core.divine import check_divine_exe
-from bg3core.language import LANGUAGE_PROFILES, DEFAULT_PROFILE
+from bg3core.language import LANGUAGE_PROFILES
+from . import theme
+from .i18n import t
 from .widgets.path_picker import PathPicker
-
 
 _LANG_OPTIONS = sorted(
     [p for p in LANGUAGE_PROFILES.values() if p.folder_name != "English"],
@@ -17,224 +22,207 @@ _LANG_OPTIONS = sorted(
 _DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
 _FOLDER_TO_DISPLAY = {p.folder_name: p.display_name for p in _LANG_OPTIONS}
 
+_APP_LANG_OPTIONS = [("한국어", "ko"), ("English", "en")]
+_APP_LANG_DISPLAY = {code: label for label, code in _APP_LANG_OPTIONS}
+_APP_LANG_CODE = {label: code for label, code in _APP_LANG_OPTIONS}
 
-class SettingsTab(ctk.CTkFrame):
-    def __init__(self, master, on_config_saved: Optional[Callable[[UserConfig], None]] = None, **kwargs):
-        super().__init__(master, **kwargs)
+
+def _row_label(text: str) -> QLabel:
+    lbl = QLabel(text)
+    lbl.setStyleSheet(f"color:{theme.TEXT_SECONDARY};font-size:11px;background:transparent;")
+    return lbl
+
+
+class SettingsTab(QWidget):
+    def __init__(self, on_config_saved: Callable[[UserConfig], None], parent=None) -> None:
+        super().__init__(parent)
         self._on_config_saved = on_config_saved
-        self._cfg: Optional[UserConfig] = None
-        font = ctk.CTkFont(family="Malgun Gothic", size=12)
-        font_b = ctk.CTkFont(family="Malgun Gothic", size=12, weight="bold")
-        font_s = ctk.CTkFont(family="Malgun Gothic", size=11)
+        self._cfg: UserConfig | None = None
 
-        # ── API 키 ──
-        row = 0
-        ctk.CTkLabel(self, text="Gemini API 키", font=font_b).grid(
-            row=row, column=0, columnspan=3, padx=16, pady=(16, 4), sticky="w"
-        )
-        row += 1
-        self._api_entry = ctk.CTkEntry(self, font=font, show="*", width=400)
-        self._api_entry.grid(row=row, column=0, columnspan=2, padx=16, pady=2, sticky="ew")
-        self._show_btn = ctk.CTkButton(
-            self, text="보기", font=font, width=60, command=self._toggle_api_vis
-        )
-        self._show_btn.grid(row=row, column=2, padx=(4, 16), pady=2)
-        self._api_visible = False
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea{border:none;background:transparent;}")
 
-        row += 1
-        ctk.CTkButton(
-            self, text="API 키 발급 페이지 열기 →", font=font_s,
-            command=lambda: webbrowser.open("https://aistudio.google.com"),
-            fg_color="transparent", text_color=("blue", "lightblue"),
-        ).grid(row=row, column=0, padx=16, pady=(0, 8), sticky="w")
+        container = QWidget()
+        scroll.setWidget(container)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll)
+
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(20, 16, 20, 20)
+        layout.setSpacing(12)
+
+        # ── API Key ──
+        layout.addWidget(_row_label(t("settings.api_key")))
+        api_row = QHBoxLayout()
+        self._api_edit = QLineEdit()
+        self._api_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        api_row.addWidget(self._api_edit)
+        self._btn_show = QPushButton(t("settings.show"))
+        self._btn_show.setFixedWidth(56)
+        self._btn_show.setCheckable(True)
+        self._btn_show.toggled.connect(self._toggle_api_visibility)
+        api_row.addWidget(self._btn_show)
+        layout.addLayout(api_row)
 
         # ── Divine.exe ──
-        row += 1
-        ctk.CTkLabel(self, text="Divine.exe 경로 (LSLib ExportTool)", font=font_b).grid(
-            row=row, column=0, columnspan=3, padx=16, pady=(8, 4), sticky="w"
-        )
-        row += 1
+        layout.addWidget(_row_label(t("settings.divine_path")))
         self._divine_picker = PathPicker(
-            self, label="",
             mode="file",
-            filetypes=[("실행 파일", "*.exe"), ("All files", "*.*")],
+            filetypes=[("Divine.exe", "Divine.exe"), ("Executable", "*.exe")],
         )
-        self._divine_picker.grid(row=row, column=0, columnspan=3, padx=16, pady=2, sticky="ew")
+        layout.addWidget(self._divine_picker)
 
-        row += 1
-        ctk.CTkButton(
-            self, text="LSLib 다운로드 페이지 열기 →", font=font_s,
-            command=lambda: webbrowser.open("https://github.com/Norbyte/lslib/releases"),
-            fg_color="transparent", text_color=("blue", "lightblue"),
-        ).grid(row=row, column=0, padx=16, pady=(0, 8), sticky="w")
+        # ── Models ──
+        layout.addWidget(_row_label(t("settings.model_1")))
+        self._model1_combo = QComboBox()
+        layout.addWidget(self._model1_combo)
 
-        # ── 모델 ──
-        row += 1
-        ctk.CTkLabel(self, text="AI 모델 (우선순위)", font=font_b).grid(
-            row=row, column=0, columnspan=3, padx=16, pady=(8, 4), sticky="w"
-        )
-        row += 1
-        self._model1 = ctk.CTkComboBox(
-            self, font=font, width=260,
-            values=["gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-2.5-flash"],
-        )
-        self._model1.grid(row=row, column=0, padx=16, pady=2, sticky="w")
-        ctk.CTkLabel(self, text="→ 1순위", font=font_s).grid(row=row, column=1, sticky="w")
+        layout.addWidget(_row_label(t("settings.model_2")))
+        self._model2_combo = QComboBox()
+        layout.addWidget(self._model2_combo)
 
-        row += 1
-        self._model2 = ctk.CTkComboBox(
-            self, font=font, width=260,
-            values=["gemini-2.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash"],
-        )
-        self._model2.grid(row=row, column=0, padx=16, pady=2, sticky="w")
-        ctk.CTkLabel(self, text="→ 폴백", font=font_s).grid(row=row, column=1, sticky="w")
+        # ── UI Scale ──
+        layout.addWidget(_row_label(t("settings.ui_scale")))
+        self._scale_combo = QComboBox()
+        self._scale_combo.addItems(["auto", "1.0", "1.25", "1.5", "1.75", "2.0"])
+        layout.addWidget(self._scale_combo)
 
-        # ── UI 배율 ──
-        row += 1
-        ctk.CTkLabel(self, text="UI 배율 (글씨 크기)", font=font_b).grid(
-            row=row, column=0, columnspan=3, padx=16, pady=(12, 4), sticky="w"
-        )
-        row += 1
-        self._scale_label_to_value = {
-            "자동 (모니터 DPI)": "auto",
-            "100%": "1.0",
-            "125%": "1.25",
-            "150%": "1.5",
-            "175%": "1.75",
-            "200%": "2.0",
-        }
-        self._scale_value_to_label = {v: k for k, v in self._scale_label_to_value.items()}
-        self._scale_combo = ctk.CTkComboBox(
-            self, font=font, width=260,
-            values=list(self._scale_label_to_value.keys()),
-            state="readonly",
-        )
-        self._scale_combo.grid(row=row, column=0, padx=16, pady=2, sticky="w")
-        ctk.CTkLabel(
-            self, text="고해상도 모니터에서 글씨가 작으면 키우세요", font=font_s, text_color="gray",
-        ).grid(row=row, column=1, columnspan=2, padx=(4, 16), sticky="w")
+        # ── Target Language ──
+        layout.addWidget(_row_label(t("settings.target_language")))
+        self._lang_combo = QComboBox()
+        self._lang_combo.addItems([p.display_name for p in _LANG_OPTIONS])
+        layout.addWidget(self._lang_combo)
 
-        # ── 번역 대상 언어 ──
-        row += 1
-        ctk.CTkLabel(self, text="번역 대상 언어 (Target Language)", font=font_b).grid(
-            row=row, column=0, columnspan=3, padx=16, pady=(12, 4), sticky="w"
-        )
-        row += 1
-        self._lang_combo = ctk.CTkComboBox(
-            self,
-            font=font,
-            width=320,
-            values=[p.display_name for p in _LANG_OPTIONS],
-            state="readonly",
-        )
-        self._lang_combo.grid(row=row, column=0, padx=16, pady=2, sticky="w")
+        # ── App UI Language ──
+        layout.addWidget(_row_label(t("settings.app_language")))
+        self._app_lang_combo = QComboBox()
+        self._app_lang_combo.addItems([label for label, _ in _APP_LANG_OPTIONS])
+        layout.addWidget(self._app_lang_combo)
 
-        # ── 캐시 ──
-        row += 1
-        ctk.CTkLabel(self, text="번역 캐시 파일", font=font_b).grid(
-            row=row, column=0, columnspan=3, padx=16, pady=(12, 4), sticky="w"
-        )
-        row += 1
-        self._cache_picker = PathPicker(
-            self, label="",
-            mode="file",
-            filetypes=[("JSON 파일", "*.json"), ("All files", "*.*")],
-        )
-        self._cache_picker.grid(row=row, column=0, columnspan=3, padx=16, pady=2, sticky="ew")
+        # ── Cache ──
+        layout.addWidget(_row_label(t("settings.cache_path")))
+        self._cache_picker = PathPicker(mode="file", filetypes=[("JSON", "*.json")])
+        layout.addWidget(self._cache_picker)
 
-        # ── Korean 폴더 스킵 ──
-        row += 1
-        self._skip_var = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(
-            self, text="Korean 폴더가 이미 있으면 스킵",
-            font=font, variable=self._skip_var,
-        ).grid(row=row, column=0, padx=16, pady=(8, 2), sticky="w")
+        # ── Checkboxes ──
+        self._skip_check = QCheckBox(t("settings.skip_existing"))
+        layout.addWidget(self._skip_check)
+        self._mcm_check = QCheckBox(t("settings.mcm_enabled"))
+        layout.addWidget(self._mcm_check)
 
-        # ── MCM 자동 처리 ──
-        row += 1
-        self._mcm_var = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(
-            self, text="MCM 의존 모드 자동 처리 (블루프린트·Lua)",
-            font=font, variable=self._mcm_var,
-        ).grid(row=row, column=0, padx=16, pady=(2, 8), sticky="w")
+        # ── Divider ──
+        div = QFrame()
+        div.setObjectName("divider")
+        div.setFrameShape(QFrame.Shape.HLine)
+        layout.addWidget(div)
 
-        # ── 버튼 + 저장 안내 ──
-        row += 1
-        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.grid(row=row, column=0, columnspan=3, padx=16, pady=(8, 4), sticky="ew")
-        ctk.CTkButton(btn_frame, text="저장", font=font_b, command=self._save).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(btn_frame, text="테스트 연결", font=font, command=self._test).pack(side="left")
+        # ── Buttons ──
+        btn_row = QHBoxLayout()
+        self._btn_save = QPushButton(t("settings.save"))
+        self._btn_save.setObjectName("btn_start")
+        self._btn_save.setFixedHeight(36)
+        self._btn_save.clicked.connect(self._save)
+        btn_row.addWidget(self._btn_save)
 
-        row += 1
-        ctk.CTkLabel(
-            self,
-            text="💾  저장하면 다음 실행 시에도 API 키와 경로가 자동으로 불러와집니다.",
-            font=font_s,
-            text_color="gray",
-        ).grid(row=row, column=0, columnspan=3, padx=16, pady=(0, 16), sticky="w")
+        self._btn_test = QPushButton(t("settings.test_api"))
+        self._btn_test.setFixedHeight(36)
+        self._btn_test.clicked.connect(self._test_api)
+        btn_row.addWidget(self._btn_test)
+        layout.addLayout(btn_row)
 
-        self.grid_columnconfigure(0, weight=1)
+        self._lbl_status = QLabel("")
+        self._lbl_status.setStyleSheet(f"color:{theme.GOLD};background:transparent;")
+        layout.addWidget(self._lbl_status)
+
+        layout.addStretch()
+
+    def _toggle_api_visibility(self, checked: bool) -> None:
+        if checked:
+            self._api_edit.setEchoMode(QLineEdit.EchoMode.Normal)
+            self._btn_show.setText(t("settings.hide"))
+        else:
+            self._api_edit.setEchoMode(QLineEdit.EchoMode.Password)
+            self._btn_show.setText(t("settings.show"))
 
     def load_config(self, cfg: UserConfig) -> None:
         self._cfg = cfg
-        self._api_entry.delete(0, "end")
-        self._api_entry.insert(0, cfg.api_key)
+        self._api_edit.setText(cfg.api_key)
         self._divine_picker.set(cfg.divine_exe_path)
-        if cfg.model_preference:
-            self._model1.set(cfg.model_preference[0] if len(cfg.model_preference) > 0 else "gemini-3.1-flash-lite")
-            self._model2.set(cfg.model_preference[1] if len(cfg.model_preference) > 1 else "gemini-2.5-flash-lite")
-        self._cache_picker.set(cfg.cache_path)
-        self._skip_var.set(cfg.skip_if_korean_exists)
-        self._mcm_var.set(cfg.mcm_enabled)
-        scale_label = self._scale_value_to_label.get(cfg.ui_scale, "자동 (모니터 DPI)")
-        self._scale_combo.set(scale_label)
-        self._lang_combo.set(
-            _FOLDER_TO_DISPLAY.get(cfg.target_language, DEFAULT_PROFILE.display_name)
+        from bg3core.constants import MODELS_TO_TRY
+        models = list(MODELS_TO_TRY) + ["gemini-2.5-flash", "gemini-2.5-pro"]
+        for combo in (self._model1_combo, self._model2_combo):
+            combo.clear()
+            combo.addItems(models)
+        prefs = cfg.model_preference or []
+        if prefs:
+            self._model1_combo.setCurrentText(prefs[0] if len(prefs) > 0 else models[0])
+            self._model2_combo.setCurrentText(prefs[1] if len(prefs) > 1 else (models[1] if len(models) > 1 else models[0]))
+        self._scale_combo.setCurrentText(cfg.ui_scale)
+        self._lang_combo.setCurrentText(
+            _FOLDER_TO_DISPLAY.get(cfg.target_language, _LANG_OPTIONS[0].display_name)
         )
+        self._app_lang_combo.setCurrentText(
+            _APP_LANG_DISPLAY.get(cfg.app_language, "한국어")
+        )
+        self._cache_picker.set(cfg.cache_path)
+        self._skip_check.setChecked(cfg.skip_if_korean_exists)
+        self._mcm_check.setChecked(cfg.mcm_enabled)
 
     def _build_config(self) -> UserConfig:
-        cfg = self._cfg or UserConfig()
-        cfg.api_key = self._api_entry.get().strip()
+        cfg = UserConfig()
+        cfg.api_key = self._api_edit.text().strip()
         cfg.divine_exe_path = self._divine_picker.get()
-        cfg.model_preference = [m for m in [self._model1.get(), self._model2.get()] if m]
+        cfg.model_preference = [
+            self._model1_combo.currentText(),
+            self._model2_combo.currentText(),
+        ]
+        cfg.ui_scale = self._scale_combo.currentText()
+        cfg.target_language = _DISPLAY_TO_FOLDER.get(
+            self._lang_combo.currentText(), "Korean"
+        )
+        cfg.app_language = _APP_LANG_CODE.get(
+            self._app_lang_combo.currentText(), "ko"
+        )
         cfg.cache_path = self._cache_picker.get()
-        cfg.skip_if_korean_exists = self._skip_var.get()
-        cfg.mcm_enabled = self._mcm_var.get()
-        cfg.ui_scale = self._scale_label_to_value.get(self._scale_combo.get(), "auto")
-        cfg.target_language = _DISPLAY_TO_FOLDER.get(self._lang_combo.get(), "Korean")
+        cfg.skip_if_korean_exists = self._skip_check.isChecked()
+        cfg.mcm_enabled = self._mcm_check.isChecked()
+        if self._cfg:
+            cfg.last_pak_dir = self._cfg.last_pak_dir
+            cfg.last_output_dir = self._cfg.last_output_dir
+            cfg.log_dir = self._cfg.log_dir
         return cfg
 
     def _save(self) -> None:
-        prev_scale = self._cfg.ui_scale if self._cfg else "auto"
         cfg = self._build_config()
+        prev_lang = self._cfg.app_language if self._cfg else "ko"
         save_config(cfg)
-        scale_changed = cfg.ui_scale != prev_scale
         self._cfg = cfg
-        if self._on_config_saved:
-            self._on_config_saved(cfg)
-        if scale_changed:
-            messagebox.showinfo(
-                "저장 완료",
-                "설정이 저장되었습니다.\n\nUI 배율은 프로그램을 다시 실행하면 적용됩니다.",
-            )
-        else:
-            messagebox.showinfo("저장 완료", "설정이 저장되었습니다.\n다음에 실행해도 자동으로 불러옵니다.")
+        self._on_config_saved(cfg)
+        self._show_status(t("settings.saved"))
+        if cfg.app_language != prev_lang:
+            QMessageBox.information(self, t("common.info"), t("settings.lang_restart"))
 
-    def _test(self) -> None:
-        cfg = self._build_config()
-        errors = []
-        if not cfg.api_key:
-            errors.append("• API 키가 비어 있습니다.")
-        if not cfg.divine_exe_path:
-            errors.append("• Divine.exe 경로가 비어 있습니다.")
-        elif not check_divine_exe(cfg.divine_exe_path):
-            errors.append(f"• Divine.exe를 찾을 수 없습니다:\n  {cfg.divine_exe_path}")
-        if errors:
-            messagebox.showerror("설정 오류", "\n".join(errors))
-        else:
-            messagebox.showinfo("확인 완료", "API 키와 Divine.exe 경로가 올바릅니다.\n(API 키 유효성은 실제 번역 시 확인됩니다)")
+    def _show_status(self, msg: str, ms: int = 3000) -> None:
+        self._lbl_status.setText(msg)
+        QTimer.singleShot(ms, lambda: self._lbl_status.setText(""))
 
-    def _toggle_api_vis(self) -> None:
-        self._api_visible = not self._api_visible
-        self._api_entry.configure(show="" if self._api_visible else "*")
-        self._show_btn.configure(text="숨기기" if self._api_visible else "보기")
+    def _test_api(self) -> None:
+        key = self._api_edit.text().strip()
+        if not key:
+            self._show_status("❌ API Key가 없습니다.")
+            return
+
+        def _check():
+            try:
+                import urllib.request, json
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+                with urllib.request.urlopen(url, timeout=10) as r:
+                    json.loads(r.read())
+                self._show_status(t("settings.api_ok"))
+            except Exception as e:
+                self._show_status(t("settings.api_fail", err=str(e)[:60]))
+
+        threading.Thread(target=_check, daemon=True).start()

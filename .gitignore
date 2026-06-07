@@ -28,5 +28,8 @@ repair_report_*.md
 # Claude Code
 .claude/
 
+# Visual brainstorming session files
+.superpowers/
+
 # 테스트 파일
 *-test.py

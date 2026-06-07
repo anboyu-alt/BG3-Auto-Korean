@@ -268,7 +268,7 @@ def run_batch(
     log_file: str,
     cache_file: str,
     work_dir: Optional[Path] = None,
-    skip_if_korean_exists: bool = True,
+    skip_if_target_exists: bool = True,
     target_language: str = "Korean",
     mcm_enabled: bool = True,
     cancel_event: Optional[threading.Event] = None,
@@ -295,7 +295,7 @@ def run_batch(
         process_pak_file(
             target, divine_path, api_key, log_file, cache_file,
             work_dir=work_dir,
-            skip_if_target_exists=skip_if_korean_exists,
+            skip_if_target_exists=skip_if_target_exists,
             target_profile=target_profile,
             mcm_enabled=mcm_enabled,
             cancel_event=cancel_event,
@@ -325,7 +325,7 @@ def run_batch(
             result = process_pak_file(
                 pak_file, divine_path, api_key, log_file, cache_file,
                 work_dir=work_dir,
-                skip_if_target_exists=skip_if_korean_exists,
+                skip_if_target_exists=skip_if_target_exists,
                 target_profile=target_profile,
                 mcm_enabled=mcm_enabled,
                 cancel_event=cancel_event,

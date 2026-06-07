@@ -6,7 +6,16 @@ from tkinter import messagebox
 
 from bg3core.config import UserConfig, save_config
 from bg3core.divine import check_divine_exe
+from bg3core.language import LANGUAGE_PROFILES, DEFAULT_PROFILE
 from .widgets.path_picker import PathPicker
+
+
+_LANG_OPTIONS = sorted(
+    [p for p in LANGUAGE_PROFILES.values() if p.folder_name != "English"],
+    key=lambda p: (0 if p.folder_name == "Korean" else 1, p.display_name),
+)
+_DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
+_FOLDER_TO_DISPLAY = {p.folder_name: p.display_name for p in _LANG_OPTIONS}
 
 
 class SettingsTab(ctk.CTkFrame):
@@ -105,6 +114,21 @@ class SettingsTab(ctk.CTkFrame):
             self, text="고해상도 모니터에서 글씨가 작으면 키우세요", font=font_s, text_color="gray",
         ).grid(row=row, column=1, columnspan=2, padx=(4, 16), sticky="w")
 
+        # ── 번역 대상 언어 ──
+        row += 1
+        ctk.CTkLabel(self, text="번역 대상 언어 (Target Language)", font=font_b).grid(
+            row=row, column=0, columnspan=3, padx=16, pady=(12, 4), sticky="w"
+        )
+        row += 1
+        self._lang_combo = ctk.CTkComboBox(
+            self,
+            font=font,
+            width=320,
+            values=[p.display_name for p in _LANG_OPTIONS],
+            state="readonly",
+        )
+        self._lang_combo.grid(row=row, column=0, padx=16, pady=2, sticky="w")
+
         # ── 캐시 ──
         row += 1
         ctk.CTkLabel(self, text="번역 캐시 파일", font=font_b).grid(
@@ -164,6 +188,9 @@ class SettingsTab(ctk.CTkFrame):
         self._mcm_var.set(cfg.mcm_enabled)
         scale_label = self._scale_value_to_label.get(cfg.ui_scale, "자동 (모니터 DPI)")
         self._scale_combo.set(scale_label)
+        self._lang_combo.set(
+            _FOLDER_TO_DISPLAY.get(cfg.target_language, DEFAULT_PROFILE.display_name)
+        )
 
     def _build_config(self) -> UserConfig:
         cfg = self._cfg or UserConfig()
@@ -174,6 +201,7 @@ class SettingsTab(ctk.CTkFrame):
         cfg.skip_if_korean_exists = self._skip_var.get()
         cfg.mcm_enabled = self._mcm_var.get()
         cfg.ui_scale = self._scale_label_to_value.get(self._scale_combo.get(), "auto")
+        cfg.target_language = _DISPLAY_TO_FOLDER.get(self._lang_combo.get(), "Korean")
         return cfg
 
     def _save(self) -> None:

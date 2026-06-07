@@ -8,8 +8,9 @@ from typing import List, Optional, Callable, TYPE_CHECKING
 if TYPE_CHECKING:
     from .logger import CallbackLogger
 
-from .constants import CONTENT_BLOCK_RE, INPUT_GLOB
+from .constants import INPUT_GLOB
 from .divine import check_divine_exe, divine_extract, convert_loca_to_xml, ensure_loca, divine_repack
+from .language import LanguageProfile, get_profile, is_already_translated, DEFAULT_PROFILE
 from .translate import (
     process_xml_file, load_translation_cache, save_translation_cache,
 )
@@ -20,40 +21,27 @@ def find_localization_folders(root_path: Path) -> List[Path]:
     return list(root_path.rglob("Localization"))
 
 
-def has_korean_folder(loc_path: Path) -> bool:
-    return (loc_path / "Korean").exists()
+def has_target_folder(loc_path: Path, folder_name: str) -> bool:
+    return (loc_path / folder_name).exists()
 
 
-def list_source_language_dirs(loc_path: Path) -> List[Path]:
+def list_source_language_dirs(loc_path: Path, target_folder_name: str = "Korean") -> List[Path]:
     if not loc_path.exists():
         return []
-    src_dirs = [p for p in loc_path.iterdir() if p.is_dir() and p.name.lower() != "korean"]
+    src_dirs = [
+        p for p in loc_path.iterdir()
+        if p.is_dir() and p.name.lower() != target_folder_name.lower()
+    ]
     src_dirs.sort(key=lambda x: (0 if x.name.lower() == "english" else 1, x.name.lower()))
     return src_dirs
-
-
-def is_already_korean(text: str) -> bool:
-    blocks = CONTENT_BLOCK_RE.findall(text)
-    if not blocks:
-        return False
-    inner_text = ""
-    for block in blocks:
-        m = re.search(r">([^<]*)</content>", block, re.IGNORECASE)
-        if m:
-            inner_text += m.group(1)
-    clean = re.sub(r"&[a-zA-Z]+;", "", inner_text)
-    clean = re.sub(r"\s+", "", clean)
-    if len(clean) < 10:
-        return False
-    korean_chars = sum(1 for c in clean if '가' <= c <= '힣' or 'ㄱ' <= c <= 'ㆎ')
-    return korean_chars / len(clean) >= 0.3
 
 
 def translate_unpacked_mod(
     unpacked_path: Path,
     api_key: str,
     log_file: str,
-    skip_if_korean_exists: bool = True,
+    skip_if_target_exists: bool = True,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
     on_progress: Optional[Callable] = None,
@@ -80,17 +68,17 @@ def translate_unpacked_mod(
 
         _log(f"    📂 Localization: {loc_path.relative_to(unpacked_path)}")
 
-        if skip_if_korean_exists and has_korean_folder(loc_path):
-            _log("       Korean 폴더가 이미 존재함. 스킵")
+        if skip_if_target_exists and has_target_folder(loc_path, target_profile.folder_name):
+            _log(f"       {target_profile.folder_name} 폴더가 이미 존재함. 스킵")
             continue
 
-        src_dirs = list_source_language_dirs(loc_path)
+        src_dirs = list_source_language_dirs(loc_path, target_profile.folder_name)
         if not src_dirs:
             _log("       하위 언어 폴더를 찾지 못함. 스킵")
             continue
 
-        korean_path = loc_path / "Korean"
-        korean_path.mkdir(parents=True, exist_ok=True)
+        target_path = loc_path / target_profile.folder_name
+        target_path.mkdir(parents=True, exist_ok=True)
 
         src_dir = src_dirs[0]
         if len(src_dirs) > 1:
@@ -130,8 +118,8 @@ def translate_unpacked_mod(
                 _log("         빈 파일. 스킵")
                 continue
 
-            if is_already_korean(original):
-                _log("         이미 한글화된 파일. 스킵")
+            if is_already_translated(original, target_profile):
+                _log("         이미 번역된 파일. 스킵")
                 continue
 
             translated = process_xml_file(
@@ -141,7 +129,7 @@ def translate_unpacked_mod(
                 logger=logger,
             )
 
-            out_file = korean_path / xml_file.name
+            out_file = target_path / xml_file.name
             out_file.write_text(translated, encoding="utf-8")
             _log(f"         ✅ 저장 완료: {out_file.name}")
             any_translated = True
@@ -156,7 +144,8 @@ def process_pak_file(
     log_file: str,
     cache_file: str,
     work_dir: Optional[Path] = None,
-    skip_if_korean_exists: bool = True,
+    skip_if_target_exists: bool = True,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
     mcm_enabled: bool = True,
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
@@ -170,7 +159,7 @@ def process_pak_file(
             print(text)
 
     pak_name = pak_path.stem
-    output_pak = pak_path.parent / f"{pak_name}_Korean.pak"
+    output_pak = pak_path.parent / f"{pak_name}_{target_profile.folder_name}.pak"
 
     if output_pak.exists():
         _log(f"  ⏩ 이미 번역된 pak 존재: {output_pak.name}. 스킵")
@@ -200,7 +189,8 @@ def process_pak_file(
     _log("  🔄 번역 시작...")
     translated = translate_unpacked_mod(
         temp_dir, api_key, log_file,
-        skip_if_korean_exists=skip_if_korean_exists,
+        skip_if_target_exists=skip_if_target_exists,
+        target_profile=target_profile,
         cancel_event=cancel_event,
         pause_event=pause_event,
         on_progress=on_progress,
@@ -265,7 +255,7 @@ def process_pak_file(
         return False
 
     shutil.rmtree(temp_dir, ignore_errors=True)
-    _log(f"  ✅ 한글화 완료: {output_pak.name}")
+    _log(f"  ✅ {target_profile.display_name} 번역 완료: {output_pak.name}")
     if on_progress:
         on_progress("done", 1, 1, output_pak.name, pak_name)
     return True
@@ -279,6 +269,7 @@ def run_batch(
     cache_file: str,
     work_dir: Optional[Path] = None,
     skip_if_korean_exists: bool = True,
+    target_language: str = "Korean",
     mcm_enabled: bool = True,
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
@@ -290,6 +281,7 @@ def run_batch(
             logger.info(text)
         else:
             print(text)
+    target_profile = get_profile(target_language)
     if not check_divine_exe(divine_path):
         return
 
@@ -303,7 +295,8 @@ def run_batch(
         process_pak_file(
             target, divine_path, api_key, log_file, cache_file,
             work_dir=work_dir,
-            skip_if_korean_exists=skip_if_korean_exists,
+            skip_if_target_exists=skip_if_korean_exists,
+            target_profile=target_profile,
             mcm_enabled=mcm_enabled,
             cancel_event=cancel_event,
             pause_event=pause_event,
@@ -313,7 +306,7 @@ def run_batch(
 
     elif target.is_dir():
         pak_files = sorted(target.glob("*.pak"))
-        pak_files = [p for p in pak_files if not p.stem.endswith("_Korean")]
+        pak_files = [p for p in pak_files if not p.stem.endswith(f"_{target_profile.folder_name}")]
 
         if not pak_files:
             _log(f"❌ 폴더에 .pak 파일이 없습니다: {target}")
@@ -332,7 +325,8 @@ def run_batch(
             result = process_pak_file(
                 pak_file, divine_path, api_key, log_file, cache_file,
                 work_dir=work_dir,
-                skip_if_korean_exists=skip_if_korean_exists,
+                skip_if_target_exists=skip_if_korean_exists,
+                target_profile=target_profile,
                 mcm_enabled=mcm_enabled,
                 cancel_event=cancel_event,
                 pause_event=pause_event,
@@ -341,7 +335,7 @@ def run_batch(
             )
             if result:
                 stats["done"] += 1
-            elif (pak_file.parent / f"{pak_file.stem}_Korean.pak").exists():
+            elif (pak_file.parent / f"{pak_file.stem}_{target_profile.folder_name}.pak").exists():
                 stats["skipped"] += 1
             else:
                 stats["failed"] += 1

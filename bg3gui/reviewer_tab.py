@@ -1,23 +1,42 @@
-import queue
+from __future__ import annotations
 import shutil
 import tempfile
 import threading
-import tkinter as tk
 from pathlib import Path
 from typing import List, Optional
 
-import customtkinter as ctk
-from tkinter import messagebox, ttk
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QListWidget, QTextEdit, QMessageBox, QSplitter,
+)
+from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtGui import QKeySequence, QShortcut
 
 from bg3core.config import UserConfig
 from bg3core.divine import divine_extract, divine_repack, ensure_loca
 from bg3core.reviewer import Entry, ReviewFile, load_review_files, save_modified_xml
+from . import theme
+from .i18n import t
 from .widgets.path_picker import PathPicker
 
 
-class ReviewerTab(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
+class _UnpackWorker(QThread):
+    done = Signal(bool)
+
+    def __init__(self, divine_path: str, pak_path: Path, dest: Path, parent=None):
+        super().__init__(parent)
+        self._divine = divine_path
+        self._pak = pak_path
+        self._dest = dest
+
+    def run(self):
+        ok = divine_extract(self._divine, self._pak, self._dest)
+        self.done.emit(ok)
+
+
+class ReviewerTab(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
         self._cfg: Optional[UserConfig] = None
         self._review_files: List[ReviewFile] = []
         self._current_file: Optional[ReviewFile] = None
@@ -26,125 +45,129 @@ class ReviewerTab(ctk.CTkFrame):
         self._show_modified_only = False
         self._temp_dir: Optional[Path] = None
         self._pak_path: Optional[Path] = None
-        self._event_queue: queue.Queue = queue.Queue()
 
-        font = ctk.CTkFont(family="Malgun Gothic", size=12)
-        font_b = ctk.CTkFont(family="Malgun Gothic", size=12, weight="bold")
-        font_s = ctk.CTkFont(family="Malgun Gothic", size=11)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
 
-        # ── 상단: PAK 선택 ──
-        top = ctk.CTkFrame(self, fg_color="transparent")
-        top.pack(fill="x", padx=16, pady=(16, 4))
-        self._pak_picker = PathPicker(
-            top, label="검수할 PAK",
+        # Top: PAK picker
+        top_row = QHBoxLayout()
+        self._picker = PathPicker(
             mode="file",
-            filetypes=[("PAK 파일", "*.pak"), ("All files", "*.*")],
+            filetypes=[("PAK files", "*.pak")],
+            label_key="review.open",
         )
-        self._pak_picker.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        ctk.CTkButton(top, text="열기", font=font_b, width=80, command=self._open_pak).pack(side="left")
+        top_row.addWidget(self._picker)
+        self._btn_open = QPushButton(t("review.open"))
+        self._btn_open.setFixedWidth(70)
+        self._btn_open.clicked.connect(self._open_pak)
+        top_row.addWidget(self._btn_open)
+        layout.addLayout(top_row)
 
-        # ── 중단: 파일 트리 + 편집 영역 ──
-        main = ctk.CTkFrame(self, fg_color="transparent")
-        main.pack(fill="both", expand=True, padx=16, pady=4)
+        # Splitter: file list (left) + editor (right)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # 파일 트리 (좌측)
-        tree_frame = ctk.CTkFrame(main, width=180)
-        tree_frame.pack(side="left", fill="y", padx=(0, 8))
-        tree_frame.pack_propagate(False)
-        ctk.CTkLabel(tree_frame, text="파일 목록", font=font_b).pack(pady=(8, 4))
-        scale = ctk.ScalingTracker.get_widget_scaling(self)
-        self._file_tree = tk.Listbox(
-            tree_frame, font=("Malgun Gothic", int(10 * scale)), selectmode="single",
-            bg="#2b2b2b", fg="white", selectbackground="#1f6aa5",
-        )
-        self._file_tree.pack(fill="both", expand=True, padx=4, pady=(0, 8))
-        self._file_tree.bind("<<ListboxSelect>>", self._on_file_select)
+        file_panel = QWidget()
+        fp_layout = QVBoxLayout(file_panel)
+        fp_layout.setContentsMargins(0, 0, 0, 0)
+        fp_layout.setSpacing(4)
+        fp_layout.addWidget(QLabel(t("review.files")))
+        self._file_list = QListWidget()
+        self._file_list.currentRowChanged.connect(self._on_file_select)
+        fp_layout.addWidget(self._file_list)
+        splitter.addWidget(file_panel)
 
-        # 편집 영역 (우측)
-        edit_frame = ctk.CTkFrame(main, fg_color="transparent")
-        edit_frame.pack(side="left", fill="both", expand=True)
+        edit_panel = QWidget()
+        ep_layout = QVBoxLayout(edit_panel)
+        ep_layout.setContentsMargins(0, 0, 0, 0)
+        ep_layout.setSpacing(6)
 
-        self._nav_label = ctk.CTkLabel(edit_frame, text="항목 0 / 0", font=font_s)
-        self._nav_label.pack(anchor="e", pady=(4, 0))
+        self._nav_label = QLabel(t("review.none"))
+        self._nav_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._nav_label.setStyleSheet(f"color:{theme.TEXT_MUTED};background:transparent;")
+        ep_layout.addWidget(self._nav_label)
 
-        ctk.CTkLabel(edit_frame, text="영어 원문", font=font_b).pack(anchor="w")
-        self._en_box = ctk.CTkTextbox(
-            edit_frame, height=120, font=font_s, state="disabled", wrap="word"
-        )
-        self._en_box.pack(fill="x", pady=(2, 8))
+        ep_layout.addWidget(QLabel(t("review.source_lang")))
+        self._en_box = QTextEdit()
+        self._en_box.setReadOnly(True)
+        self._en_box.setFixedHeight(100)
+        ep_layout.addWidget(self._en_box)
 
-        ctk.CTkLabel(edit_frame, text="한국어 번역", font=font_b).pack(anchor="w")
-        self._kr_box = ctk.CTkTextbox(edit_frame, height=120, font=font_s, wrap="word")
-        self._kr_box.pack(fill="x", pady=(2, 8))
+        ep_layout.addWidget(QLabel(t("review.target_lang")))
+        self._kr_box = QTextEdit()
+        self._kr_box.setFixedHeight(100)
+        ep_layout.addWidget(self._kr_box)
 
-        # 네비게이션 버튼
-        nav = ctk.CTkFrame(edit_frame, fg_color="transparent")
-        nav.pack(fill="x", pady=4)
-        ctk.CTkButton(nav, text="◀ 이전", font=font, width=80, command=self._prev).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(nav, text="다음 ▶", font=font, width=80, command=self._next).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(nav, text="저장 (Ctrl+S)", font=font_b, command=self._save_all).pack(side="left", padx=(0, 4))
-        self._modified_only_btn = ctk.CTkButton(
-            nav, text="수정 항목만 보기", font=font, command=self._toggle_modified_only
-        )
-        self._modified_only_btn.pack(side="left")
+        nav_row = QHBoxLayout()
+        self._btn_prev = QPushButton(t("review.prev"))
+        self._btn_prev.setFixedWidth(80)
+        self._btn_prev.clicked.connect(self._prev)
+        nav_row.addWidget(self._btn_prev)
+        self._btn_next = QPushButton(t("review.next"))
+        self._btn_next.setFixedWidth(80)
+        self._btn_next.clicked.connect(self._next)
+        nav_row.addWidget(self._btn_next)
+        self._btn_save = QPushButton(t("review.save"))
+        self._btn_save.clicked.connect(self._save_all)
+        nav_row.addWidget(self._btn_save)
+        self._btn_modified = QPushButton(t("review.modified_only"))
+        self._btn_modified.setCheckable(True)
+        self._btn_modified.toggled.connect(self._toggle_modified)
+        nav_row.addWidget(self._btn_modified)
+        nav_row.addStretch()
+        ep_layout.addLayout(nav_row)
+        ep_layout.addStretch()
 
-        # 단축키 (CTk는 bind_all 미지원 — 편집 박스에 직접 바인딩)
-        self._kr_box.bind("<Control-s>", lambda e: self._save_all())
+        splitter.addWidget(edit_panel)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([180, 600])
+        layout.addWidget(splitter, stretch=1)
+
+        QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save_all)
 
     def set_config(self, cfg: UserConfig) -> None:
         self._cfg = cfg
 
     def _open_pak(self) -> None:
-        pak_str = self._pak_picker.get()
-        if not pak_str:
-            messagebox.showwarning("입력 필요", "PAK 파일을 선택해 주세요.")
+        path_str = self._picker.get()
+        if not path_str:
             return
         if not self._cfg or not self._cfg.divine_exe_path:
-            messagebox.showerror("설정 오류", "설정 탭에서 Divine.exe 경로를 먼저 저장하세요.")
+            QMessageBox.warning(self, t("common.warning"), "설정에서 Divine.exe 경로를 먼저 저장하세요.")
             return
-
-        self._pak_path = Path(pak_str)
+        self._pak_path = Path(path_str)
         if self._temp_dir and self._temp_dir.exists():
             shutil.rmtree(self._temp_dir, ignore_errors=True)
         self._temp_dir = Path(tempfile.mkdtemp(prefix="bg3_review_"))
+        self._btn_open.setEnabled(False)
+        self._unpack_worker = _UnpackWorker(
+            self._cfg.divine_exe_path, self._pak_path, self._temp_dir, parent=self
+        )
+        self._unpack_worker.done.connect(self._on_unpack_done)
+        self._unpack_worker.start()
 
-        def _unpack():
-            ok = divine_extract(self._cfg.divine_exe_path, self._pak_path, self._temp_dir)
-            self._event_queue.put(("unpack_done", ok))
+    def _on_unpack_done(self, ok: bool) -> None:
+        self._btn_open.setEnabled(True)
+        if not ok:
+            QMessageBox.critical(self, t("common.error"), "PAK 언팩에 실패했습니다.")
+            return
+        target_folder = self._cfg.target_language if self._cfg else "Korean"
+        review_files = load_review_files(self._temp_dir, target_folder=target_folder)
+        if not review_files:
+            QMessageBox.warning(self, t("common.warning"),
+                "번역 항목을 찾지 못했습니다.\n(대상 언어 폴더가 있는지 확인하세요)")
+            return
+        self._review_files = review_files
+        self._file_list.clear()
+        for rf in review_files:
+            self._file_list.addItem(rf.filename)
+        if review_files:
+            self._file_list.setCurrentRow(0)
 
-        threading.Thread(target=_unpack, daemon=True).start()
-        self._poll_open()
-
-    def _poll_open(self) -> None:
-        try:
-            kind, data = self._event_queue.get_nowait()
-            if kind == "unpack_done":
-                if not data:
-                    messagebox.showerror("오류", "PAK 언팩에 실패했습니다.")
-                    return
-                review_files = load_review_files(self._temp_dir, target_folder=self._cfg.target_language if self._cfg else "Korean")
-                if not review_files:
-                    messagebox.showwarning("항목 없음", "검수할 번역 항목을 찾지 못했습니다.\n(Korean 폴더가 있는지 확인하세요)")
-                    return
-                self._review_files = review_files
-                self._populate_tree()
-                return
-        except queue.Empty:
-            pass
-        self.after(200, self._poll_open)
-
-    def _populate_tree(self) -> None:
-        self._file_tree.delete(0, "end")
-        for rf in self._review_files:
-            self._file_tree.insert("end", rf.filename)
-        if self._review_files:
-            self._file_tree.selection_set(0)
-            self._load_file(self._review_files[0])
-
-    def _on_file_select(self, event=None) -> None:
-        sel = self._file_tree.curselection()
-        if sel and self._review_files:
-            self._load_file(self._review_files[sel[0]])
+    def _on_file_select(self, row: int) -> None:
+        if 0 <= row < len(self._review_files):
+            self._load_file(self._review_files[row])
 
     def _load_file(self, rf: ReviewFile) -> None:
         self._current_file = rf
@@ -157,27 +180,21 @@ class ReviewerTab(ctk.CTkFrame):
 
     def _show_entry(self) -> None:
         if not self._current_entries:
-            self._nav_label.configure(text="항목 없음")
-            self._en_box.configure(state="normal")
-            self._en_box.delete("1.0", "end")
-            self._en_box.configure(state="disabled")
-            self._kr_box.delete("1.0", "end")
+            self._nav_label.setText(t("review.none"))
+            self._en_box.clear()
+            self._kr_box.clear()
             return
         entry = self._current_entries[self._current_idx]
         total = len(self._current_entries)
-        self._nav_label.configure(text=f"항목 {self._current_idx + 1} / {total}")
-        self._en_box.configure(state="normal")
-        self._en_box.delete("1.0", "end")
-        self._en_box.insert("1.0", entry.english)
-        self._en_box.configure(state="disabled")
-        self._kr_box.delete("1.0", "end")
-        self._kr_box.insert("1.0", entry.display_target)
+        self._nav_label.setText(t("review.nav", idx=self._current_idx + 1, total=total))
+        self._en_box.setPlainText(entry.english)
+        self._kr_box.setPlainText(entry.display_target)
 
     def _commit_current(self) -> None:
         if not self._current_entries:
             return
         entry = self._current_entries[self._current_idx]
-        new_text = self._kr_box.get("1.0", "end-1c")
+        new_text = self._kr_box.toPlainText()
         if new_text != entry.target_text:
             entry.modified = True
             entry.new_target = new_text
@@ -200,26 +217,19 @@ class ReviewerTab(ctk.CTkFrame):
             return
         modified = [rf for rf in self._review_files if any(e.modified for e in rf.entries)]
         if not modified:
-            messagebox.showinfo("저장", "수정된 항목이 없습니다.")
+            QMessageBox.information(self, t("common.info"), "수정된 항목이 없습니다.")
             return
         for rf in modified:
             save_modified_xml(rf)
-
-        # BG3는 .loca 바이너리를 읽으므로, 편집된 xml에서 .loca를 강제 재생성한다.
-        # force=True: 검수는 기존 번역을 수정하므로 기존 .loca도 덮어써야 한다.
         ensure_loca(self._cfg.divine_exe_path, self._temp_dir, force=True)
-
-        stem = self._pak_path.stem
-        out_pak = self._pak_path.parent / f"{stem}_Reviewed.pak"
+        out_pak = self._pak_path.parent / f"{self._pak_path.stem}_Reviewed.pak"
         if divine_repack(self._cfg.divine_exe_path, self._temp_dir, out_pak):
-            messagebox.showinfo("저장 완료", f"검수 PAK 저장 완료:\n{out_pak.name}")
+            QMessageBox.information(self, t("common.info"), t("review.saved_ok", path=out_pak.name))
         else:
-            messagebox.showerror("오류", "PAK 리팩에 실패했습니다.")
+            QMessageBox.critical(self, t("common.error"), "PAK 리팩에 실패했습니다.")
 
-    def _toggle_modified_only(self) -> None:
-        self._show_modified_only = not self._show_modified_only
-        self._modified_only_btn.configure(
-            text="전체 보기" if self._show_modified_only else "수정 항목만 보기"
-        )
+    def _toggle_modified(self, checked: bool) -> None:
+        self._show_modified_only = checked
+        self._btn_modified.setText(t("review.all") if checked else t("review.modified_only"))
         if self._current_file:
             self._load_file(self._current_file)

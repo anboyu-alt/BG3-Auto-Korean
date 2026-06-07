@@ -1,42 +1,56 @@
-from collections import deque
-from typing import Optional
-
-import customtkinter as ctk
-
-
-_MAX_LINES = 5000
-
-_TAG_COLORS = {
-    "info":  ("#000000", "#ffffff"),
-    "warn":  ("#b45309", "#fef3c7"),
-    "error": ("#dc2626", "#fee2e2"),
-    "debug": ("#6b7280", "#f3f4f6"),
-}
+# bg3gui/widgets/log_view.py
+from __future__ import annotations
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit
+from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
+from .. import theme
+from ..i18n import t
 
 
-class LogView(ctk.CTkTextbox):
-    def __init__(self, master, **kwargs):
-        kwargs.setdefault("state", "disabled")
-        kwargs.setdefault("wrap", "word")
-        kwargs.setdefault("font", ctk.CTkFont(family="Malgun Gothic", size=11))
-        super().__init__(master, **kwargs)
-        self._line_buf: deque = deque(maxlen=_MAX_LINES)
-        self._auto_scroll = True
+class LogView(QWidget):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
 
-    def append(self, text: str, level: str = "info") -> None:
-        self._line_buf.append((text, level))
-        self.configure(state="normal")
-        self.insert("end", text + "\n")
-        # ring buffer: 라인 수 초과 시 맨 위 줄 제거
-        lines = int(self.index("end-1c").split(".")[0])
-        if lines > _MAX_LINES:
-            self.delete("1.0", f"{lines - _MAX_LINES}.0")
-        if self._auto_scroll:
-            self.see("end")
-        self.configure(state="disabled")
+        header = QHBoxLayout()
+        lbl = QLabel(t("translate.log_header"))
+        lbl.setStyleSheet(f"color:{theme.TEXT_MUTED};font-size:9px;letter-spacing:1px;background:transparent;")
+        header.addWidget(lbl)
+        header.addStretch()
+        self._btn_clear = QPushButton(t("translate.log_clear"))
+        self._btn_clear.setStyleSheet(
+            f"QPushButton{{color:{theme.TEXT_MUTED};background:transparent;border:none;font-size:9px;padding:0;}}"
+            f"QPushButton:hover{{color:{theme.TEXT_SECONDARY};}}"
+        )
+        self._btn_clear.clicked.connect(self.clear)
+        header.addWidget(self._btn_clear)
+        layout.addLayout(header)
+
+        self._text = QPlainTextEdit()
+        self._text.setReadOnly(True)
+        layout.addWidget(self._text)
+
+    def append(self, message: str) -> None:
+        cursor = self._text.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        fmt = QTextCharFormat()
+        if message.startswith("✅"):
+            fmt.setForeground(QColor(theme.SUCCESS))
+        elif message.startswith("▶"):
+            fmt.setForeground(QColor(theme.GOLD))
+        elif message.startswith("❌") or message.startswith("⚠"):
+            fmt.setForeground(QColor("#cc4444"))
+        elif message.startswith("⏳"):
+            fmt.setForeground(QColor(theme.TEXT_MUTED))
+        else:
+            fmt.setForeground(QColor(theme.TEXT_PRIMARY))
+        cursor.insertText(message + "\n", fmt)
+        self._text.setTextCursor(cursor)
+        self._text.ensureCursorVisible()
 
     def clear(self) -> None:
-        self._line_buf.clear()
-        self.configure(state="normal")
-        self.delete("1.0", "end")
-        self.configure(state="disabled")
+        self._text.clear()
+
+    def retranslate(self) -> None:
+        self._btn_clear.setText(t("translate.log_clear"))

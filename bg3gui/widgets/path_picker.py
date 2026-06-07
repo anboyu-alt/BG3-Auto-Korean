@@ -1,50 +1,51 @@
-import customtkinter as ctk
-from tkinter import filedialog
-from typing import Callable, Optional
+# bg3gui/widgets/path_picker.py
+from __future__ import annotations
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QFileDialog
+from PySide6.QtCore import Signal
+from .. import theme
+from ..i18n import t
 
 
-class PathPicker(ctk.CTkFrame):
-    """경로 입력 + 찾아보기 버튼 조합 위젯."""
+class PathPicker(QWidget):
+    path_changed = Signal(str)
 
     def __init__(
         self,
-        master,
-        label: str,
-        mode: str = "file",          # "file" | "dir"
-        filetypes: Optional[list] = None,
-        on_change: Optional[Callable[[str], None]] = None,
-        **kwargs,
-    ):
-        super().__init__(master, fg_color="transparent", **kwargs)
+        parent: QWidget | None = None,
+        mode: str = "file",
+        label_key: str = "common.browse",
+        filetypes: list[tuple[str, str]] | None = None,
+    ) -> None:
+        super().__init__(parent)
         self._mode = mode
         self._filetypes = filetypes or [("All files", "*.*")]
-        self._on_change = on_change
-        font = ctk.CTkFont(family="Malgun Gothic", size=12)
 
-        ctk.CTkLabel(self, text=label, font=font, width=120, anchor="w").grid(
-            row=0, column=0, padx=(0, 6), sticky="w"
-        )
-        self._entry = ctk.CTkEntry(self, font=font, width=320)
-        self._entry.grid(row=0, column=1, padx=(0, 6), sticky="ew")
-        self.grid_columnconfigure(1, weight=1)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
-        ctk.CTkButton(
-            self, text="찾아보기", font=font, width=80, command=self._browse
-        ).grid(row=0, column=2)
+        self._edit = QLineEdit()
+        layout.addWidget(self._edit)
+
+        self._btn = QPushButton(t(label_key))
+        self._btn.setFixedWidth(60)
+        self._btn.clicked.connect(self._browse)
+        layout.addWidget(self._btn)
 
     def _browse(self) -> None:
         if self._mode == "dir":
-            path = filedialog.askdirectory()
+            path = QFileDialog.getExistingDirectory(self, t("common.browse"), self._edit.text())
         else:
-            path = filedialog.askopenfilename(filetypes=self._filetypes)
+            filter_str = ";;".join(f"{name} ({ext})" for name, ext in self._filetypes)
+            path, _ = QFileDialog.getOpenFileName(
+                self, t("common.browse"), self._edit.text(), filter_str
+            )
         if path:
-            self.set(path)
+            self._edit.setText(path)
+            self.path_changed.emit(path)
 
     def get(self) -> str:
-        return self._entry.get().strip()
+        return self._edit.text().strip()
 
-    def set(self, value: str) -> None:
-        self._entry.delete(0, "end")
-        self._entry.insert(0, value)
-        if self._on_change:
-            self._on_change(value)
+    def set(self, path: str) -> None:
+        self._edit.setText(path)

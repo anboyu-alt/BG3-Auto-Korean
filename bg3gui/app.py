@@ -1,96 +1,109 @@
-import shutil
-from pathlib import Path
-from tkinter import messagebox
+from __future__ import annotations
 
-import customtkinter as ctk
+from PySide6.QtWidgets import (
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+    QStackedWidget, QLabel,
+)
+from PySide6.QtCore import Qt
 
-from bg3core.config import UserConfig, get_default_cache_path, load_config, save_config
-from bg3core.constants import __version__
-from .i18n import apply_ui_scale, configure_default_font, enable_dpi_awareness
+from bg3core.config import UserConfig, load_config, save_config
+from bg3core.language import get_profile
+from . import theme
+from .i18n import load as i18n_load, t
+from .titlebar import TitleBar
+from .sidebar import NavigationSidebar
 from .settings_tab import SettingsTab
 from .translate_tab import TranslateTab
 from .reviewer_tab import ReviewerTab
 from .glossary_tab import GlossaryTab
 
 
-class App(ctk.CTk):
-    def __init__(self):
-        enable_dpi_awareness()
+class App(QMainWindow):
+    def __init__(self) -> None:
         super().__init__()
-        configure_default_font()
-        ctk.set_appearance_mode("system")
+        cfg = load_config()
+        i18n_load(cfg.app_language)
 
-        self._cfg: UserConfig = load_config()
-        self._current_scale = apply_ui_scale(self._cfg.ui_scale)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
+        self.resize(900, 620)
+        self.setMinimumSize(720, 500)
+        self.setStyleSheet(theme.app_stylesheet())
 
-        self.title(f"BG3 모드 자동 한글화 v{__version__}")
-        self.geometry("860x680")
-        self.minsize(720, 500)
+        central = QWidget()
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        # 첫 실행 감지 (API 키 없음)
-        self._first_run = not self._cfg.api_key
+        # Title bar
+        self._titlebar = TitleBar(self)
+        root.addWidget(self._titlebar)
 
-        self._tabs = ctk.CTkTabview(self, anchor="nw")
-        self._tabs.pack(fill="both", expand=True, padx=12, pady=12)
+        # Body: sidebar + stack
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(0)
 
-        self._tabs.add("⚙️ 설정")
-        self._tabs.add("🔄 번역")
-        self._tabs.add("🔍 검수")
-        self._tabs.add("📖 용어집")
+        self._sidebar = NavigationSidebar()
+        body.addWidget(self._sidebar)
 
-        self._settings_tab = SettingsTab(
-            self._tabs.tab("⚙️ 설정"),
-            on_config_saved=self._on_config_saved,
+        self._stack = QStackedWidget()
+        body.addWidget(self._stack, stretch=1)
+
+        root.addLayout(body, stretch=1)
+
+        # Status bar
+        self._status_bar = QWidget()
+        self._status_bar.setFixedHeight(22)
+        self._status_bar.setStyleSheet(
+            f"background:{theme.BG_LOG};border-top:1px solid {theme.DIVIDER};"
         )
-        self._settings_tab.pack(fill="both", expand=True)
-        self._settings_tab.load_config(self._cfg)
+        sb_layout = QHBoxLayout(self._status_bar)
+        sb_layout.setContentsMargins(14, 0, 14, 0)
+        self._lbl_status_left = QLabel(t("translate.status.idle"))
+        self._lbl_status_left.setStyleSheet(
+            f"color:{theme.GOLD};font-size:10px;background:transparent;"
+        )
+        self._lbl_status_right = QLabel("")
+        self._lbl_status_right.setStyleSheet(
+            f"color:{theme.TEXT_MUTED};font-size:10px;background:transparent;"
+        )
+        self._lbl_status_right.setAlignment(Qt.AlignmentFlag.AlignRight)
+        sb_layout.addWidget(self._lbl_status_left)
+        sb_layout.addStretch()
+        sb_layout.addWidget(self._lbl_status_right)
+        root.addWidget(self._status_bar)
 
-        self._translate_tab = TranslateTab(self._tabs.tab("🔄 번역"))
-        self._translate_tab.pack(fill="both", expand=True)
-        self._translate_tab.set_config(self._cfg)
+        # Tabs
+        self._settings_tab = SettingsTab(on_config_saved=self._on_config_saved)
+        self._translate_tab = TranslateTab()
+        self._reviewer_tab = ReviewerTab()
+        self._glossary_tab = GlossaryTab()
 
-        self._reviewer_tab = ReviewerTab(self._tabs.tab("🔍 검수"))
-        self._reviewer_tab.pack(fill="both", expand=True)
-        self._reviewer_tab.set_config(self._cfg)
+        for tab in [self._settings_tab, self._translate_tab,
+                    self._reviewer_tab, self._glossary_tab]:
+            self._stack.addWidget(tab)
 
-        self._glossary_tab = GlossaryTab(self._tabs.tab("📖 용어집"))
-        self._glossary_tab.pack(fill="both", expand=True)
+        self._stack.setCurrentIndex(1)  # start on translate tab
 
-        # 첫 실행: 설정 탭으로 포커스
-        if self._first_run:
-            self._tabs.set("⚙️ 설정")
-            self.after(300, self._show_onboarding)
+        self._sidebar.page_changed.connect(self._stack.setCurrentIndex)
 
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._cfg = cfg
+        self._settings_tab.load_config(cfg)
+        self._translate_tab.set_config(cfg)
+        self._reviewer_tab.set_config(cfg)
+        self._update_status_right(cfg)
 
     def _on_config_saved(self, cfg: UserConfig) -> None:
         self._cfg = cfg
         self._translate_tab.set_config(cfg)
         self._reviewer_tab.set_config(cfg)
+        self._update_status_right(cfg)
 
-    def _show_onboarding(self) -> None:
-        messagebox.showinfo(
-            "BG3 모드 자동 한글화에 오신 것을 환영합니다!",
-            "처음 사용하시는군요!\n\n"
-            "1. [설정] 탭에서 Gemini API 키와 Divine.exe 경로를 입력하세요.\n"
-            "2. 저장 후 [번역] 탭에서 PAK 파일을 선택하고 시작하세요.\n\n"
-            "API 키 발급: https://aistudio.google.com\n"
-            "LSLib 다운로드: https://github.com/Norbyte/lslib/releases",
-        )
-
-    def _on_close(self) -> None:
-        # 번역 중이면 확인
-        if self._translate_tab._running:
-            if not messagebox.askyesno(
-                "종료 확인",
-                "번역이 진행 중입니다. 정말 종료하시겠습니까?\n(진행 중인 파일은 저장되지 않을 수 있습니다)"
-            ):
-                return
-            self._translate_tab._cancel_event.set()
-
-        # 검수 임시 폴더 정리
-        temp = getattr(self._reviewer_tab, "_temp_dir", None)
-        if temp and Path(temp).exists():
-            shutil.rmtree(temp, ignore_errors=True)
-
-        self.destroy()
+    def _update_status_right(self, cfg: UserConfig) -> None:
+        profile = get_profile(cfg.target_language)
+        # Show just the native name without the English part
+        lang_name = profile.display_name.split(" (")[0].strip()
+        model = cfg.model_preference[0] if cfg.model_preference else "?"
+        mcm = "MCM ✓" if cfg.mcm_enabled else "MCM ✗"
+        self._lbl_status_right.setText(f"{lang_name} · {model} · {mcm}")

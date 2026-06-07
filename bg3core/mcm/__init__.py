@@ -15,12 +15,13 @@ if TYPE_CHECKING:
     from ..logger import CallbackLogger
 
 from ..translate import translate_text_list
+from ..language import LanguageProfile, DEFAULT_PROFILE
 from .blueprint import find_blueprints, process_blueprints
 from .lua_handler import find_lua_files, process_lua_files
 from .loca_handles import (
     find_flat_loca_xmls,
     process_flat_localizations,
-    mirror_korean_to_source_languages,
+    mirror_to_source_languages,
 )
 
 
@@ -38,6 +39,7 @@ def process_mcm_for_mod(
     unpacked_root: Path,
     api_key: str,
     log_file: str,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
     review_report_path: Optional[Path] = None,
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
@@ -63,7 +65,11 @@ def process_mcm_for_mod(
         pause_event=pause_event,
         logger=logger,
     )
-    mirrored = mirror_korean_to_source_languages(unpacked_root, logger=logger)
+    mirrored = mirror_to_source_languages(
+        unpacked_root,
+        target_folder=target_profile.folder_name,
+        logger=logger,
+    )
     bp_stats = process_blueprints(unpacked_root, translate_fn, logger=logger)
     lua_stats = process_lua_files(
         unpacked_root, translate_fn,

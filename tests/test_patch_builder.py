@@ -84,7 +84,7 @@ def test_build_patch_meta_xml_contains_required_fields(tmp_path):
     meta = extract_original_meta(root)
     xml = build_patch_meta_xml(meta)
     assert "Demo_Mod_KR" in xml
-    assert "Demo Mod (Korean Patch)" in xml
+    assert "Demo Mod (KR Patch)" in xml
     assert "Translation" in xml
     assert meta["uuid"] != make_patch_uuid(meta["uuid"])
     assert make_patch_uuid(meta["uuid"]) in xml
@@ -96,7 +96,7 @@ def test_build_patch_mod_dir_creates_complete_structure(tmp_path):
     info = build_patch_mod_dir(root, output)
     assert info is not None
     assert info["patch_folder"] == "Demo_Mod_KR"
-    assert info["korean_xml_count"] == 1
+    assert info["translated_xml_count"] == 1
 
     # 디렉토리 구조 검증
     assert (output / "Mods" / "Demo_Mod_KR" / "meta.lsx").exists()

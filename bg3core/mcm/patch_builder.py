@@ -17,6 +17,8 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..logger import CallbackLogger
 
+from ..language import LanguageProfile, DEFAULT_PROFILE
+
 
 def extract_original_meta(unpacked_root: Path) -> Optional[dict]:
     """원본 모드 디렉토리에서 meta.lsx의 ModuleInfo·Dependencies를 읽어 반환."""
@@ -70,9 +72,9 @@ def extract_original_meta(unpacked_root: Path) -> Optional[dict]:
     }
 
 
-def make_patch_uuid(original_uuid: str) -> str:
+def make_patch_uuid(original_uuid: str, lang_code: str = "KR") -> str:
     """원본 UUID 기반 deterministic UUID 생성 — 재실행 시 같은 ID."""
-    h = hashlib.sha1(f"BG3-Auto-Korean:KRPatch:{original_uuid}".encode()).hexdigest()
+    h = hashlib.sha1(f"BG3-Auto-Korean:{lang_code}Patch:{original_uuid}".encode()).hexdigest()
     return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 
 
@@ -90,7 +92,7 @@ _META_TEMPLATE = '''<?xml version="1.0" encoding="utf-8"?>
         <node id="ModuleInfo">
           <attribute id="Author" type="LSWString" value="BG3-Auto-Korean" />
           <attribute id="CharacterCreationLevelName" type="FixedString" value="" />
-          <attribute id="Description" type="LSWString" value="Korean translation patch. Place below the original mod in Mod Manager." />
+          <attribute id="Description" type="LSWString" value="{LANG_DISPLAY_NAME} translation patch. Place below the original mod in Mod Manager." />
           <attribute id="Folder" type="LSWString" value="{PATCH_FOLDER}" />
           <attribute id="GMTemplate" type="FixedString" value="" />
           <attribute id="LobbyLevelName" type="FixedString" value="" />
@@ -126,11 +128,14 @@ _META_TEMPLATE = '''<?xml version="1.0" encoding="utf-8"?>
 '''
 
 
-def build_patch_meta_xml(original_meta: dict) -> str:
+def build_patch_meta_xml(
+    original_meta: dict,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
+) -> str:
     """패치 모드용 meta.lsx 텍스트 생성."""
-    patch_uuid = make_patch_uuid(original_meta["uuid"])
-    patch_folder = f"{original_meta['folder']}_KR"
-    patch_name = f"{original_meta['name']} (Korean Patch)"
+    patch_uuid = make_patch_uuid(original_meta["uuid"], lang_code=target_profile.lang_code)
+    patch_folder = f"{original_meta['folder']}_{target_profile.lang_code}"
+    patch_name = f"{original_meta['name']} ({target_profile.lang_code} Patch)"
 
     deps = original_meta.get("dependencies_inner", "").strip()
     if not deps:
@@ -150,6 +155,7 @@ def build_patch_meta_xml(original_meta: dict) -> str:
         PATCH_FOLDER=patch_folder,
         PATCH_NAME=patch_name,
         PATCH_UUID=patch_uuid,
+        LANG_DISPLAY_NAME=target_profile.display_name,
         VERSION64=original_meta["version64"],
     )
 
@@ -157,12 +163,13 @@ def build_patch_meta_xml(original_meta: dict) -> str:
 def build_patch_mod_dir(
     unpacked_root: Path,
     output_dir: Path,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
     logger: Optional["CallbackLogger"] = None,
 ) -> Optional[dict]:
-    """한글 패치 모드 디렉토리를 output_dir에 생성. divine_repack 대상 디렉토리 경로 반환.
+    """번역 패치 모드 디렉토리를 output_dir에 생성. divine_repack 대상 디렉토리 경로 반환.
 
-    Korean 폴더의 *.xml을 패치 모드 안의 Korean/, English/, French/ 등 모든 언어
-    폴더에 복사한다 (같은 contentuid를 모든 언어에 등록).
+    target_profile.folder_name 폴더의 *.xml을 패치 모드 안의 해당 언어/, English/, French/ 등
+    모든 언어 폴더에 복사한다 (같은 contentuid를 모든 언어에 등록).
     """
     def _log(text: str) -> None:
         if logger:
@@ -175,22 +182,22 @@ def build_patch_mod_dir(
         _log("    [patch] meta.lsx에서 원본 모드 정보를 추출하지 못함. 패치 PAK 산출 스킵")
         return None
 
-    patch_folder_name = f"{original_meta['folder']}_KR"
+    patch_folder_name = f"{original_meta['folder']}_{target_profile.lang_code}"
 
-    # Korean Localization 수집
-    korean_xmls: List[Path] = []
+    # 번역 Localization 수집
+    target_xmls: List[Path] = []
     for loc_dir in unpacked_root.rglob("Localization"):
         if not loc_dir.is_dir():
             continue
-        korean = loc_dir / "Korean"
-        if korean.is_dir():
-            korean_xmls.extend(
-                x for x in korean.iterdir()
+        target_lang_dir = loc_dir / target_profile.folder_name
+        if target_lang_dir.is_dir():
+            target_xmls.extend(
+                x for x in target_lang_dir.iterdir()
                 if x.is_file() and x.suffix.lower() == ".xml"
             )
 
-    if not korean_xmls:
-        _log("    [patch] Korean/*.xml이 없어 패치 PAK 산출 스킵")
+    if not target_xmls:
+        _log(f"    [patch] {target_profile.folder_name}/*.xml이 없어 패치 PAK 산출 스킵")
         return None
 
     # 패치 모드 디렉토리 빌드
@@ -201,10 +208,10 @@ def build_patch_mod_dir(
     loc_root = output_dir / "Localization"
 
     # meta.lsx
-    meta_xml = build_patch_meta_xml(original_meta)
+    meta_xml = build_patch_meta_xml(original_meta, target_profile=target_profile)
     (mods_dir / "meta.lsx").write_text(meta_xml, encoding="utf-8")
 
-    # Localization: Korean/ 한글 XML 복사 + 원본의 다른 언어 폴더에도 동명 한글 복사
+    # Localization: 번역 XML 복사 + 원본의 다른 언어 폴더에도 동명 번역 복사
     # 원본의 언어 폴더 이름 수집
     source_lang_names = set()
     for loc_dir in unpacked_root.rglob("Localization"):
@@ -213,22 +220,22 @@ def build_patch_mod_dir(
         for child in loc_dir.iterdir():
             if child.is_dir():
                 source_lang_names.add(child.name)
-    source_lang_names.add("Korean")  # 최소 Korean
+    source_lang_names.add(target_profile.folder_name)  # 최소 target_profile 폴더
 
     copied = 0
     for lang in source_lang_names:
         lang_dir = loc_root / lang
         lang_dir.mkdir(parents=True, exist_ok=True)
-        for src_xml in korean_xmls:
+        for src_xml in target_xmls:
             dst = lang_dir / src_xml.name
             dst.write_text(src_xml.read_text(encoding="utf-8"), encoding="utf-8")
             copied += 1
 
-    _log(f"    [patch] 패치 모드 빌드: {patch_folder_name}, 한글 XML {len(korean_xmls)}개 × 언어폴더 {len(source_lang_names)}개 = {copied}건")
+    _log(f"    [patch] 패치 모드 빌드: {patch_folder_name}, 번역 XML {len(target_xmls)}개 × 언어폴더 {len(source_lang_names)}개 = {copied}건")
     return {
         "patch_dir": output_dir,
         "patch_folder": patch_folder_name,
-        "patch_uuid": make_patch_uuid(original_meta["uuid"]),
-        "korean_xml_count": len(korean_xmls),
+        "patch_uuid": make_patch_uuid(original_meta["uuid"], lang_code=target_profile.lang_code),
+        "translated_xml_count": len(target_xmls),
         "lang_folders": sorted(source_lang_names),
     }

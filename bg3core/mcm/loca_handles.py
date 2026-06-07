@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 from ..translate import process_xml_file
 
 
-def _has_language_subdirs(loc_dir: Path) -> bool:
-    """Localization 폴더가 언어 서브폴더 구조인지 — Korean 제외하고 디렉토리 1개 이상."""
+def _has_language_subdirs(loc_dir: Path, target_folder: str = "Korean") -> bool:
+    """Localization 폴더가 언어 서브폴더 구조인지 — target_folder 제외하고 디렉토리 1개 이상."""
     if not loc_dir.is_dir():
         return False
     for child in loc_dir.iterdir():
-        if child.is_dir() and child.name.lower() != "korean":
+        if child.is_dir() and child.name.lower() != target_folder.lower():
             return True
     return False
 
@@ -57,15 +57,16 @@ def _looks_translated(text: str) -> bool:
     return korean_chars / len(cleaned) >= 0.3
 
 
-def mirror_korean_to_source_languages(
+def mirror_to_source_languages(
     unpacked_root: Path,
+    target_folder: str = "Korean",
     logger: Optional["CallbackLogger"] = None,
 ) -> int:
-    """Korean/*.xml을 같은 Localization의 다른 언어 폴더에 동명 파일로 덮어쓰기.
+    """{target_folder}/*.xml을 같은 Localization의 다른 언어 폴더에 동명 파일로 덮어쓰기.
 
     BG3MCM은 게임 언어 설정과 무관하게 모드의 영어 Localization XML에서 핸들을
-    조회하는 경우가 있어, Korean 폴더를 만들기만 해서는 게임에 한글이 표시되지
-    않는다. 동명 파일이 있는 다른 언어 폴더에 한글본을 덮어써서 강제로 한글을
+    조회하는 경우가 있어, 번역 폴더를 만들기만 해서는 게임에 번역이 표시되지
+    않는다. 동명 파일이 있는 다른 언어 폴더에 번역본을 덮어써서 강제로 번역을
     표시하게 한다. 동명 파일이 없는 폴더는 건드리지 않는다.
     """
     def _log(text: str) -> None:
@@ -78,22 +79,22 @@ def mirror_korean_to_source_languages(
     for loc_dir in unpacked_root.rglob("Localization"):
         if not loc_dir.is_dir():
             continue
-        korean_dir = loc_dir / "Korean"
-        if not korean_dir.is_dir():
+        target_dir = loc_dir / target_folder
+        if not target_dir.is_dir():
             continue
-        korean_xmls = [x for x in korean_dir.iterdir() if x.is_file() and x.suffix.lower() == ".xml"]
-        if not korean_xmls:
+        target_xmls = [x for x in target_dir.iterdir() if x.is_file() and x.suffix.lower() == ".xml"]
+        if not target_xmls:
             continue
-        # Korean의 한글 XML을 베이스 prefix별로 매핑.
+        # target_folder의 번역 XML을 베이스 prefix별로 매핑.
         # 예: 'english.xml' → prefix='english', 'english.loca.xml' → prefix='english'
         # (둘 다 같은 prefix이므로 한 내용으로 통일됨)
         prefix_to_content: dict = {}
-        for kx in korean_xmls:
+        for kx in target_xmls:
             p = kx.name.split(".", 1)[0].lower()
             prefix_to_content.setdefault(p, kx.read_text(encoding="utf-8"))
 
         for lang_dir in loc_dir.iterdir():
-            if not lang_dir.is_dir() or lang_dir.name.lower() == "korean":
+            if not lang_dir.is_dir() or lang_dir.name.lower() == target_folder.lower():
                 continue
             for dst in lang_dir.iterdir():
                 if not dst.is_file():
@@ -104,7 +105,7 @@ def mirror_korean_to_source_languages(
                 if dst_prefix in prefix_to_content:
                     dst.write_text(prefix_to_content[dst_prefix], encoding="utf-8")
                     mirrored += 1
-                    _log(f"    [loca-mirror] {lang_dir.name}/{dst.name} ← Korean (prefix={dst_prefix})")
+                    _log(f"    [loca-mirror] {lang_dir.name}/{dst.name} ← {target_folder} (prefix={dst_prefix})")
     return mirrored
 
 

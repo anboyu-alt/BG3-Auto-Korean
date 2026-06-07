@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from bg3core.mcm.loca_handles import mirror_korean_to_source_languages
+from bg3core.mcm.loca_handles import mirror_to_source_languages as mirror_korean_to_source_languages
 
 
 def _make_loca(tmp_path, files):

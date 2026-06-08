@@ -4,7 +4,7 @@ from typing import Callable
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QComboBox, QCheckBox, QScrollArea, QFrame,
+    QPushButton, QCheckBox, QScrollArea, QFrame,
     QMessageBox,
 )
 from PySide6.QtCore import Qt, QTimer
@@ -14,6 +14,7 @@ from bg3core.language import LANGUAGE_PROFILES
 from . import theme
 from .i18n import t, t_for
 from .widgets.path_picker import PathPicker
+from .widgets.no_scroll_combo import NoScrollComboBox
 
 _LANG_OPTIONS = sorted(
     LANGUAGE_PROFILES.values(),
@@ -77,28 +78,28 @@ class SettingsTab(QWidget):
 
         # ── Models ──
         layout.addWidget(_row_label(t("settings.model_1")))
-        self._model1_combo = QComboBox()
+        self._model1_combo = NoScrollComboBox()
         layout.addWidget(self._model1_combo)
 
         layout.addWidget(_row_label(t("settings.model_2")))
-        self._model2_combo = QComboBox()
+        self._model2_combo = NoScrollComboBox()
         layout.addWidget(self._model2_combo)
 
         # ── UI Scale ──
         layout.addWidget(_row_label(t("settings.ui_scale")))
-        self._scale_combo = QComboBox()
+        self._scale_combo = NoScrollComboBox()
         self._scale_combo.addItems(["auto", "1.0", "1.25", "1.5", "1.75", "2.0"])
         layout.addWidget(self._scale_combo)
 
         # ── Target Language ──
         layout.addWidget(_row_label(t("settings.target_language")))
-        self._lang_combo = QComboBox()
+        self._lang_combo = NoScrollComboBox()
         self._lang_combo.addItems([p.display_name for p in _LANG_OPTIONS])
         layout.addWidget(self._lang_combo)
 
         # ── App UI Language ──
         layout.addWidget(_row_label(t("settings.app_language")))
-        self._app_lang_combo = QComboBox()
+        self._app_lang_combo = NoScrollComboBox()
         self._app_lang_combo.addItems([label for label, _ in _APP_LANG_OPTIONS])
         layout.addWidget(self._app_lang_combo)
 

@@ -73,6 +73,7 @@ STRINGS = {
     "glossary.ask_edit": '"{en}"의 새 한국어 번역:',
     "glossary.confirm_delete": '"{en}" 항목을 삭제할까요?',
     "glossary.select_first": "항목을 먼저 선택하세요.",
+    "common.browse": "찾기",
     "common.ok": "확인",
     "common.cancel": "취소",
     "common.error": "오류",

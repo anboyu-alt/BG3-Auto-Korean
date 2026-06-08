@@ -73,6 +73,7 @@ STRINGS = {
     "glossary.ask_edit": 'New translation for "{en}":',
     "glossary.confirm_delete": 'Delete entry "{en}"?',
     "glossary.select_first": "Please select an entry first.",
+    "common.browse": "Browse",
     "common.ok": "OK",
     "common.cancel": "Cancel",
     "common.error": "Error",

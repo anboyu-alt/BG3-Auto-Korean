@@ -480,3 +480,9 @@ However, items that could break game functionality if auto-translated — such a
 - Original mod files are never modified
 - Do not share your API key on the internet or with others
 - **Do not delete the `translation_cache.json` file.** It stores previously translated content; deleting it causes all text to be retranslated from scratch.
+
+---
+
+## License
+
+[MIT License](LICENSE) — free to use, modify, and redistribute (keep the copyright and license notice). See the [LICENSE](LICENSE) file for details.

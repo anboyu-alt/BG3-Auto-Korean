@@ -55,7 +55,6 @@ class ReviewerTab(QWidget):
         self._picker = PathPicker(
             mode="file",
             filetypes=[("PAK files", "*.pak")],
-            label_key="review.open",
         )
         top_row.addWidget(self._picker)
         self._btn_open = QPushButton(t("review.open"))

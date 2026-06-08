@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from ..logger import CallbackLogger
 
 from ..translate import process_xml_file
+from ..language import LanguageProfile, DEFAULT_PROFILE, script_ratio
 
 
 def _has_language_subdirs(loc_dir: Path, target_folder: str = "Korean") -> bool:
@@ -31,13 +32,13 @@ def _has_language_subdirs(loc_dir: Path, target_folder: str = "Korean") -> bool:
     return False
 
 
-def find_flat_loca_xmls(unpacked_root: Path) -> List[Path]:
+def find_flat_loca_xmls(unpacked_root: Path, target_folder: str = "Korean") -> List[Path]:
     """언어 서브폴더 없는 Localization/*.xml 목록."""
     results: List[Path] = []
     for loc_dir in unpacked_root.rglob("Localization"):
         if not loc_dir.is_dir():
             continue
-        if _has_language_subdirs(loc_dir):
+        if _has_language_subdirs(loc_dir, target_folder):
             continue
         for xml_file in loc_dir.iterdir():
             if xml_file.is_file() and xml_file.suffix.lower() == ".xml":
@@ -46,15 +47,16 @@ def find_flat_loca_xmls(unpacked_root: Path) -> List[Path]:
     return results
 
 
-def _looks_translated(text: str) -> bool:
-    """한글 비율이 충분히 높으면 이미 번역된 파일."""
+def _looks_translated(text: str, profile: LanguageProfile = DEFAULT_PROFILE) -> bool:
+    """대상 언어 스크립트 비율이 충분히 높으면 이미 번역된 파일.
+
+    Latin 등 감지 불가 스크립트(영어·프랑스어 등 대상)는 항상 False다.
+    """
     import re
     cleaned = re.sub(r"<[^>]+>", "", text)
-    cleaned = re.sub(r"\s+", "", cleaned)
-    if len(cleaned) < 10:
+    if len(re.sub(r"\s+", "", cleaned)) < 10:
         return False
-    korean_chars = sum(1 for c in cleaned if "가" <= c <= "힣" or "ㄱ" <= c <= "ㆎ")
-    return korean_chars / len(cleaned) >= 0.3
+    return script_ratio(cleaned, profile) >= 0.3
 
 
 def mirror_to_source_languages(
@@ -116,15 +118,16 @@ def process_flat_localizations(
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
     logger: Optional["CallbackLogger"] = None,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
 ) -> dict:
-    """언팩된 모드 안의 평면 Localization XML들을 in-place로 한글화."""
+    """언팩된 모드 안의 평면 Localization XML들을 in-place로 대상 언어로 번역."""
     def _log(text: str) -> None:
         if logger:
             logger.info(text)
         else:
             print(text)
 
-    xmls = find_flat_loca_xmls(unpacked_root)
+    xmls = find_flat_loca_xmls(unpacked_root, target_profile.folder_name)
     if not xmls:
         return {"files": 0, "translated": 0}
 
@@ -140,8 +143,8 @@ def process_flat_localizations(
 
         if not original.strip():
             continue
-        if _looks_translated(original):
-            _log(f"    [loca] {xml_file.name}: 이미 한글화됨, 스킵")
+        if _looks_translated(original, target_profile):
+            _log(f"    [loca] {xml_file.name}: 이미 번역됨, 스킵")
             continue
 
         translated = process_xml_file(
@@ -149,10 +152,11 @@ def process_flat_localizations(
             cancel_event=cancel_event,
             pause_event=pause_event,
             logger=logger,
+            target_profile=target_profile,
         )
         if translated != original:
             xml_file.write_text(translated, encoding="utf-8")
             translated_files += 1
-            _log(f"    [loca] {xml_file.name}: in-place 한글화 완료")
+            _log(f"    [loca] {xml_file.name}: in-place 번역 완료")
 
     return {"files": len(xmls), "translated": translated_files}

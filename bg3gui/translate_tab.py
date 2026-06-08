@@ -17,7 +17,7 @@ from .widgets.log_view import LogView
 from .widgets.progress_panel import ProgressPanel
 
 _LANG_OPTIONS = sorted(
-    [p for p in LANGUAGE_PROFILES.values() if p.folder_name != "English"],
+    LANGUAGE_PROFILES.values(),
     key=lambda p: (0 if p.folder_name == "Korean" else 1, p.display_name),
 )
 _FOLDER_TO_DISPLAY = {p.folder_name: p.display_name for p in _LANG_OPTIONS}

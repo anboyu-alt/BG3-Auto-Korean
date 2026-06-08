@@ -127,6 +127,7 @@ def translate_unpacked_mod(
                 cancel_event=cancel_event,
                 pause_event=pause_event,
                 logger=logger,
+                target_profile=target_profile,
             )
 
             out_file = target_path / xml_file.name

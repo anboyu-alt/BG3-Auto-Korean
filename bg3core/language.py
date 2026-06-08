@@ -49,6 +49,50 @@ LANGUAGE_PROFILES: Dict[str, LanguageProfile] = {
 DEFAULT_PROFILE: LanguageProfile = LANGUAGE_PROFILES["Korean"]
 
 
+# 번역 프롬프트에 넣을 대상 언어 이름. Gemini가 명확히 알아듣도록 한글명(영문명)을
+# 함께 적는다. folder_name이 BrazilianPortuguese처럼 붙어 있어 display_name에서
+# 깔끔히 뽑기 어렵기 때문에 별도로 둔다.
+_PROMPT_NAMES: Dict[str, str] = {
+    "Korean":              "한국어 (Korean)",
+    "English":             "영어 (English)",
+    "French":              "프랑스어 (French)",
+    "German":              "독일어 (German)",
+    "Spanish":             "스페인어 (Spanish, Spain)",
+    "Polish":              "폴란드어 (Polish)",
+    "Russian":             "러시아어 (Russian)",
+    "Chinese":             "중국어 간체 (Simplified Chinese)",
+    "Turkish":             "튀르키예어 (Turkish)",
+    "BrazilianPortuguese": "브라질 포르투갈어 (Brazilian Portuguese)",
+    "Italian":             "이탈리아어 (Italian)",
+    "LatinSpanish":        "중남미 스페인어 (Latin American Spanish)",
+    "ChineseTraditional":  "중국어 번체 (Traditional Chinese)",
+    "Ukrainian":           "우크라이나어 (Ukrainian)",
+    "Japanese":            "일본어 (Japanese)",
+}
+
+
+def prompt_language_name(profile: LanguageProfile) -> str:
+    """번역 지시문에 쓸 대상 언어 이름. 매핑에 없으면 folder_name으로 폴백."""
+    return _PROMPT_NAMES.get(profile.folder_name, profile.folder_name)
+
+
+def script_ratio(text: str, profile: LanguageProfile) -> float:
+    """text 안에서 대상 언어 스크립트 문자가 차지하는 비율(0.0~1.0).
+
+    Latin 등 문자 범위로 구분 불가한 스크립트는 항상 0.0을 반환한다(사전 감지 불가).
+    공백은 제외하고 계산한다. is_already_translated와 달리 <content> 블록을 요구하지
+    않고 임의 문자열에 바로 쓸 수 있다.
+    """
+    ranges = _SCRIPT_RANGES.get(profile.script_type, [])
+    if not ranges:
+        return 0.0
+    clean = re.sub(r"\s+", "", text)
+    if not clean:
+        return 0.0
+    target = sum(1 for c in clean if any(lo <= c <= hi for lo, hi in ranges))
+    return target / len(clean)
+
+
 def get_profile(folder_name: str) -> LanguageProfile:
     """Get language profile by folder name, or return DEFAULT_PROFILE if not found.
 

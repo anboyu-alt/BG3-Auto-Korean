@@ -12,11 +12,11 @@ from PySide6.QtCore import Qt, QTimer
 from bg3core.config import UserConfig, save_config
 from bg3core.language import LANGUAGE_PROFILES
 from . import theme
-from .i18n import t
+from .i18n import t, t_for
 from .widgets.path_picker import PathPicker
 
 _LANG_OPTIONS = sorted(
-    [p for p in LANGUAGE_PROFILES.values() if p.folder_name != "English"],
+    LANGUAGE_PROFILES.values(),
     key=lambda p: (0 if p.folder_name == "Korean" else 1, p.display_name),
 )
 _DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
@@ -198,12 +198,21 @@ class SettingsTab(QWidget):
     def _save(self) -> None:
         cfg = self._build_config()
         prev_lang = self._cfg.app_language if self._cfg else "ko"
+        prev_scale = self._cfg.ui_scale if self._cfg else "auto"
         save_config(cfg)
         self._cfg = cfg
         self._on_config_saved(cfg)
         self._show_status(t("settings.saved"))
         if cfg.app_language != prev_lang:
-            QMessageBox.information(self, t("common.info"), t("settings.lang_restart"))
+            # 안내는 새로 선택한 UI 언어로 보여줘야 이용자가 알아본다.
+            QMessageBox.information(
+                self,
+                t_for(cfg.app_language, "common.info"),
+                t_for(cfg.app_language, "settings.lang_restart"),
+            )
+        elif cfg.ui_scale != prev_scale:
+            # 배율은 런타임에 못 바꾸고 재시작해야 적용된다.
+            QMessageBox.information(self, t("common.info"), t("settings.scale_restart"))
 
     def _show_status(self, msg: str, ms: int = 3000) -> None:
         self._lbl_status.setText(msg)

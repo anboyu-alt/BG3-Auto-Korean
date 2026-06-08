@@ -57,6 +57,7 @@ def process_mcm_for_mod(
             cancel_event=cancel_event,
             pause_event=pause_event,
             logger=logger,
+            target_profile=target_profile,
         )
 
     loca_stats = process_flat_localizations(
@@ -64,6 +65,7 @@ def process_mcm_for_mod(
         cancel_event=cancel_event,
         pause_event=pause_event,
         logger=logger,
+        target_profile=target_profile,
     )
     mirrored = mirror_to_source_languages(
         unpacked_root,

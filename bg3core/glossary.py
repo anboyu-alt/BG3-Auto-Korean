@@ -41,7 +41,7 @@ def save_custom_glossary(entries: dict) -> None:
     # 시스템 프롬프트 캐시도 무효화 (용어집이 바뀌면 프롬프트도 재생성 필요)
     try:
         import bg3core.translate as _t
-        _t._SYSTEM_INSTRUCTION = None
+        _t._SYSTEM_INSTRUCTIONS.clear()
     except Exception:
         pass
 

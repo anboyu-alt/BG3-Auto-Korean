@@ -15,6 +15,9 @@ from .constants import (
     MODELS_TO_TRY, BASE_URL, TIMEOUT_SEC, DOWNSHIFT_TOKEN_STEPS,
 )
 from .glossary import GLOSSARY, try_glossary_only, build_glossary_prompt_section, apply_glossary
+from .language import (
+    LanguageProfile, DEFAULT_PROFILE, prompt_language_name, script_ratio,
+)
 
 
 _translation_cache: Optional[dict] = None
@@ -30,7 +33,7 @@ _SKIP_PATTERNS = re.compile(
     r")$"
 )
 
-_SYSTEM_INSTRUCTION: Optional[str] = None
+_SYSTEM_INSTRUCTIONS: dict = {}
 
 
 def load_translation_cache(cache_file: str) -> dict:
@@ -59,26 +62,34 @@ def save_translation_cache(cache_file: str) -> None:
     _cache_dirty = False
 
 
-def cache_get(original: str) -> Optional[str]:
+def _cache_key(original: str, profile: LanguageProfile) -> str:
+    # 한국어는 기존 캐시 파일과의 호환을 위해 bare key를 유지한다. 다른 대상 언어는
+    # 같은 원문이라도 결과가 다르므로 폴더명으로 네임스페이스를 분리한다.
+    if profile.folder_name == "Korean":
+        return original
+    return f"\x00{profile.folder_name}\x00{original}"
+
+
+def cache_get(original: str, profile: LanguageProfile = DEFAULT_PROFILE) -> Optional[str]:
     if _translation_cache is None:
         return None
-    return _translation_cache.get(original)
+    return _translation_cache.get(_cache_key(original, profile))
 
 
-def cache_put(original: str, translated: str) -> None:
+def cache_put(original: str, translated: str, profile: LanguageProfile = DEFAULT_PROFILE) -> None:
     global _cache_dirty
     if _translation_cache is not None:
-        _translation_cache[original] = translated
+        _translation_cache[_cache_key(original, profile)] = translated
         _cache_dirty = True
 
 
-def should_skip_translation(text: str) -> bool:
+def should_skip_translation(text: str, profile: LanguageProfile = DEFAULT_PROFILE) -> bool:
     stripped = text.strip()
     if not stripped:
         return True
-    korean_chars = sum(1 for c in stripped if '가' <= c <= '힣')
-    total_chars = sum(1 for c in stripped if not c.isspace())
-    if total_chars > 0 and korean_chars / total_chars >= 0.5:
+    # 이미 대상 언어 스크립트로 절반 이상 채워져 있으면 번역 생략. Latin 등 감지
+    # 불가 스크립트는 script_ratio가 0.0이라 이 조건에 걸리지 않는다.
+    if script_ratio(stripped, profile) >= 0.5:
         return True
     if _SKIP_PATTERNS.match(stripped):
         return True
@@ -207,11 +218,23 @@ def escape_unescaped_angle_brackets(text: str) -> str:
     return text
 
 
-def get_system_instruction() -> str:
-    global _SYSTEM_INSTRUCTION
-    if _SYSTEM_INSTRUCTION is None:
-        glossary_section = build_glossary_prompt_section()
-        _SYSTEM_INSTRUCTION = f"""너는 발더스 게이트 3 모드 한글화 전문가다.
+def get_system_instruction(profile: LanguageProfile = DEFAULT_PROFILE) -> str:
+    cached = _SYSTEM_INSTRUCTIONS.get(profile.folder_name)
+    if cached is not None:
+        return cached
+
+    target_name = prompt_language_name(profile)
+    is_korean = profile.folder_name == "Korean"
+
+    # 용어집(영→한)과 "Bane→액운" 규칙은 한국어 대상일 때만 의미가 있다.
+    glossary_section = build_glossary_prompt_section() if is_korean else ""
+    korean_extra = (
+        '\n[한국어 추가 규칙]\n'
+        '- 주문 이름 "Bane"은 신 이름이 아니라 주문으로 쓰인 경우 "액운"으로 번역한다.\n'
+        if is_korean else ""
+    )
+
+    instruction = f"""너는 발더스 게이트 3 모드 번역 전문가다. 입력의 모든 텍스트를 {target_name}(으)로 번역한다.
 
 [입력 형식]
 번호|원문텍스트
@@ -219,7 +242,7 @@ def get_system_instruction() -> str:
 
 [출력 형식]
 번호|번역된텍스트
-(입력과 동일한 번호를 유지하고, 텍스트만 한국어로 번역)
+(입력과 동일한 번호를 유지하고, 텍스트만 {target_name}(으)로 번역)
 
 [절대 규칙]
 1) 번호를 절대 바꾸지 않는다. 입력의 번호를 그대로 출력한다.
@@ -228,12 +251,13 @@ def get_system_instruction() -> str:
 4) &lt;LSTag ...&gt; ... &lt;/LSTag&gt; 이스케이프 태그도 그대로 유지하고 사이 텍스트만 번역한다.
 5) 빈 텍스트는 빈 채로 유지한다. (예: 3| -> 3|)
 6) 설명, 주석, 마크다운 없이 번역된 줄만 출력한다.
-7) 원문은 영어가 아닐 수도 있다(포르투갈어 등). 어떤 언어든 한국어로 번역한다.
-8) 주문 이름 "Bane"은 신 이름이 아니라 주문으로 쓰인 경우 "액운"으로 번역한다.
-9) 번역 결과 안에 `<...>` 형태의 새로운 태그나 placeholder를 절대 만들지 않는다. 원문에 있는 `&lt;...&gt;` 이스케이프 entity만 그대로 유지하고, 그 외 `<`나 `>` 기호 자체를 한글 결과에 절대 사용하지 않는다. 예: D&D 용어를 "(내성 굴림)"이나 "[내성 굴림]" 같은 일반 괄호로만 표기하고, "&lt;내성 굴림&gt;"이나 "<내성 굴림>" 같은 표기는 금지한다.
-
+7) 원문은 어떤 언어든(영어, 포르투갈어 등) 될 수 있다. 무조건 {target_name}(으)로 번역한다. 원문이 이미 {target_name}이면 그대로 둔다.
+8) 번역 결과 안에 `<...>` 형태의 새로운 태그나 placeholder를 절대 만들지 않는다. 원문에 있는 `&lt;...&gt;` 이스케이프 entity만 그대로 유지하고, 그 외 `<`나 `>` 기호 자체를 결과에 절대 사용하지 않는다. 게임 용어를 강조할 때도 "(내성 굴림)"이나 "[내성 굴림]" 같은 일반 괄호만 쓰고 `<...>`는 금지한다.
+{korean_extra}
 {glossary_section}"""
-    return _SYSTEM_INSTRUCTION
+
+    _SYSTEM_INSTRUCTIONS[profile.folder_name] = instruction
+    return instruction
 
 
 def extract_block_parts(block: str) -> Tuple[str, str, str]:
@@ -246,9 +270,10 @@ def extract_block_parts(block: str) -> Tuple[str, str, str]:
 def call_gemini(lines_text: str, filename: str,
                 chunk_index: int, total_chunks: int,
                 api_key: str,
-                cancel_event: Optional[threading.Event] = None) -> Tuple[Optional[str], str]:
+                cancel_event: Optional[threading.Event] = None,
+                target_profile: LanguageProfile = DEFAULT_PROFILE) -> Tuple[Optional[str], str]:
     payload = {
-        "system_instruction": {"parts": [{"text": get_system_instruction()}]},
+        "system_instruction": {"parts": [{"text": get_system_instruction(target_profile)}]},
         "contents": [{"parts": [{"text": f"[파일: {filename} ({chunk_index}/{total_chunks})]\n{lines_text}"}]}],
         "generationConfig": {
             "temperature": 0.1,
@@ -340,7 +365,10 @@ def process_xml_file(
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
     logger: Optional["CallbackLogger"] = None,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
 ) -> str:
+    use_glossary = target_profile.folder_name == "Korean"
+
     def _log(text: str) -> None:
         if logger:
             logger.info(text)
@@ -382,15 +410,15 @@ def process_xml_file(
     need_api: List[Tuple[str, int]] = []
 
     for text, idx in unique_list:
-        if should_skip_translation(text):
+        if should_skip_translation(text, target_profile):
             translated_map[idx] = text
             stats_skip += 1
-        elif (cached := cache_get(text)) is not None:
+        elif (cached := cache_get(text, target_profile)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(cached)
             stats_cache += 1
-        elif (hit := try_glossary_only(text)) is not None:
+        elif use_glossary and (hit := try_glossary_only(text)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(hit)
-            cache_put(text, hit)
+            cache_put(text, hit, target_profile)
             stats_glossary += 1
         else:
             need_api.append((text, idx))
@@ -432,6 +460,7 @@ def process_xml_file(
                 raw, status = call_gemini(
                     "\n".join(lines), filename, cidx, len(chunks), api_key,
                     cancel_event=cancel_event,
+                    target_profile=target_profile,
                 )
 
                 if raw is None:
@@ -456,9 +485,10 @@ def process_xml_file(
                         t = restore_escaped_tags(t, mapping)
                         t = reescape_if_model_unescaped(t)
                         t = escape_unescaped_angle_brackets(t)
-                        t = apply_glossary(t)
+                        if use_glossary:
+                            t = apply_glossary(t)
                         translated_map[idx] = t
-                        cache_put(orig, t)
+                        cache_put(orig, t, target_profile)
                         ok += 1
                 _log(f"        -> 성공: {ok}/{len(chunk)}개 ({status})")
                 time.sleep(1.5)
@@ -502,8 +532,9 @@ def translate_text_list(
     cancel_event: Optional[threading.Event] = None,
     pause_event: Optional[threading.Event] = None,
     logger: Optional["CallbackLogger"] = None,
+    target_profile: LanguageProfile = DEFAULT_PROFILE,
 ) -> Dict[str, str]:
-    """임의 텍스트 리스트를 영문→한글 dict로 번역해 반환.
+    """임의 텍스트 리스트를 원문→대상언어 dict로 번역해 반환.
 
     중복 입력은 자동으로 dedup된다. should_skip_translation에 걸리거나 빈 문자열은
     결과 dict에 포함시키지 않는다(호출자가 원본 그대로 사용). API 실패 시에도
@@ -512,6 +543,8 @@ def translate_text_list(
     응답 파싱이 `idx|텍스트` 형식을 쓰므로, 텍스트 안의 `|`는 placeholder로
     보호해 호출하고 결과에서 복원한다.
     """
+    use_glossary = target_profile.folder_name == "Korean"
+
     def _log(text: str) -> None:
         if logger:
             logger.info(text)
@@ -535,16 +568,16 @@ def translate_text_list(
     stats_cache = stats_skip = stats_glossary = 0
 
     for text, idx in sorted(unique_texts.items(), key=lambda x: x[1]):
-        if should_skip_translation(text):
+        if should_skip_translation(text, target_profile):
             stats_skip += 1
             continue
-        if (cached := cache_get(text)) is not None:
+        if (cached := cache_get(text, target_profile)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(cached)
             stats_cache += 1
             continue
-        if (hit := try_glossary_only(text)) is not None:
+        if use_glossary and (hit := try_glossary_only(text)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(hit)
-            cache_put(text, hit)
+            cache_put(text, hit, target_profile)
             stats_glossary += 1
             continue
         need_api.append((text, idx))
@@ -580,6 +613,7 @@ def translate_text_list(
                 raw, status = call_gemini(
                     "\n".join(lines), label, cidx, len(chunks), api_key,
                     cancel_event=cancel_event,
+                    target_profile=target_profile,
                 )
 
                 if raw is None:
@@ -602,9 +636,10 @@ def translate_text_list(
                         t = _restore_pipes(t)
                         t = reescape_if_model_unescaped(t)
                         t = escape_unescaped_angle_brackets(t)
-                        t = apply_glossary(t)
+                        if use_glossary:
+                            t = apply_glossary(t)
                         translated_map[idx] = t
-                        cache_put(orig, t)
+                        cache_put(orig, t, target_profile)
                 time.sleep(1.5)
 
             if not failed_hard:

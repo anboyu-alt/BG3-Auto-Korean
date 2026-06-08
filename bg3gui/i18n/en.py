@@ -41,6 +41,7 @@ STRINGS = {
     "settings.api_fail": "❌ API error: {err}",
     "settings.saved": "✅ Saved",
     "settings.lang_restart": "App UI language changed. Restart to apply.",
+    "settings.scale_restart": "UI scale changed. Restart to apply.",
     "review.pak_label": "PAK to Review",
     "review.open": "Open",
     "review.files": "Files",

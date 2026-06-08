@@ -41,6 +41,7 @@ STRINGS = {
     "settings.api_fail": "❌ API 오류: {err}",
     "settings.saved": "✅ 저장됨",
     "settings.lang_restart": "앱 UI 언어가 변경됐습니다. 앱을 재시작하면 적용됩니다.",
+    "settings.scale_restart": "UI 배율이 변경됐습니다. 앱을 재시작하면 적용됩니다.",
     "review.pak_label": "검수할 PAK",
     "review.open": "열기",
     "review.files": "파일 목록",

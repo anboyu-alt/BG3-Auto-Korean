@@ -18,6 +18,7 @@ from bg3core.reviewer import Entry, ReviewFile, load_review_files, save_modified
 from . import theme
 from .i18n import t
 from .widgets.path_picker import PathPicker
+from .widgets.description_panel import DescriptionPanel
 
 
 class _UnpackWorker(QThread):
@@ -46,7 +47,23 @@ class ReviewerTab(QWidget):
         self._temp_dir: Optional[Path] = None
         self._pak_path: Optional[Path] = None
 
-        layout = QVBoxLayout(self)
+        # 좌측: 검수 컨트롤 ~50% · 우측: 기능 설명 패널 ~50% (드래그로 비율 조절 가능)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        outer_split = QSplitter(Qt.Orientation.Horizontal)
+        outer_split.setChildrenCollapsible(False)
+        left = QWidget()
+        outer_split.addWidget(left)
+        panel = self._build_description_panel()
+        panel.setMinimumWidth(280)
+        outer_split.addWidget(panel)
+        outer_split.setStretchFactor(0, 1)
+        outer_split.setStretchFactor(1, 1)
+        outer_split.setSizes([500, 500])
+        root.addWidget(outer_split)
+
+        layout = QVBoxLayout(left)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
@@ -120,10 +137,19 @@ class ReviewerTab(QWidget):
         splitter.addWidget(edit_panel)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([180, 600])
+        splitter.setSizes([140, 300])
         layout.addWidget(splitter, stretch=1)
 
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save_all)
+
+    def _build_description_panel(self) -> DescriptionPanel:
+        items = [
+            (t("review.pak_label"), t("desc.review.open")),
+            (t("review.files"), t("desc.review.files")),
+            (t("review.source_lang"), t("desc.review.edit")),
+            (t("review.save"), t("desc.review.save")),
+        ]
+        return DescriptionPanel(t("desc.review.heading"), items)
 
     def set_config(self, cfg: UserConfig) -> None:
         self._cfg = cfg

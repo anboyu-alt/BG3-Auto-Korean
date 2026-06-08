@@ -28,7 +28,8 @@ class PathPicker(QWidget):
         layout.addWidget(self._edit)
 
         self._btn = QPushButton(t(label_key))
-        self._btn.setFixedWidth(60)
+        # 고정 폭은 영어 "Browse" 등이 잘리므로 내용에 맞춰 최소 폭만 지정.
+        self._btn.setMinimumWidth(72)
         self._btn.clicked.connect(self._browse)
         layout.addWidget(self._btn)
 

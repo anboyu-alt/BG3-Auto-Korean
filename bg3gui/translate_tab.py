@@ -4,8 +4,9 @@ from typing import Callable
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox,
-    QMessageBox, QFileDialog,
+    QMessageBox, QFileDialog, QSplitter,
 )
+from PySide6.QtCore import Qt
 
 from bg3core.config import UserConfig, save_config
 from bg3core.language import LANGUAGE_PROFILES
@@ -16,6 +17,7 @@ from .workers import TranslationWorker
 from .widgets.path_picker import PathPicker
 from .widgets.log_view import LogView
 from .widgets.progress_panel import ProgressPanel
+from .widgets.description_panel import DescriptionPanel
 
 _LANG_OPTIONS = sorted(
     LANGUAGE_PROFILES.values(),
@@ -44,7 +46,23 @@ class TranslateTab(QWidget):
         self._pause_event = threading.Event()
         self._running = False
 
-        layout = QVBoxLayout(self)
+        # 좌측: 컨트롤+로그 ~50% · 우측: 기능 설명 패널 ~50% (드래그로 비율 조절 가능)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        split = QSplitter(Qt.Orientation.Horizontal)
+        split.setChildrenCollapsible(False)
+        left = QWidget()
+        split.addWidget(left)
+        panel = self._build_description_panel()
+        panel.setMinimumWidth(280)
+        split.addWidget(panel)
+        split.setStretchFactor(0, 1)
+        split.setStretchFactor(1, 1)
+        split.setSizes([500, 500])
+        root.addWidget(split)
+
+        layout = QVBoxLayout(left)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(10)
 
@@ -104,6 +122,15 @@ class TranslateTab(QWidget):
         # Log (dominant — stretch=1)
         self._log = LogView()
         layout.addWidget(self._log, stretch=1)
+
+    def _build_description_panel(self) -> DescriptionPanel:
+        items = [
+            (t("translate.file_label"), t("desc.translate.file")),
+            (t("translate.target_lang"), t("desc.translate.lang")),
+            (t("translate.model"), t("desc.translate.model")),
+            (t("translate.start"), t("desc.translate.controls")),
+        ]
+        return DescriptionPanel(t("desc.translate.heading"), items)
 
     def _pick_folder(self) -> None:
         path = QFileDialog.getExistingDirectory(self, t("translate.file_label"))

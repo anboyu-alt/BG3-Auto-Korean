@@ -439,6 +439,7 @@ However, items that could break game functionality if auto-translated — such a
 - **UI scale actually applied**: The UI scale setting now takes real effect on screen (applied at app startup; a restart notice is shown when changed).
 - **App UI language notice fixed**: When you change the UI language, the notice is shown **in the newly selected language**.
 - **AI model selection now works + UI consolidation**: The selected AI model is now actually used by the translation engine (previously the choice was ignored and a fixed model was always used). The target language and AI model selectors are unified into the **Translate tab** (duplicates removed from Settings). Your chosen model is tried first, with automatic fallback on failure.
+- **Help panel + layout revamp**: The Settings, Translate, and Review tabs now use a **two-column layout** — controls on the left, feature descriptions on the right (drag the middle handle to adjust the ratio). Input/button widths were tuned to fix button-text clipping in the English UI. Descriptions are provided per app UI language.
 - **UI bug fixes**: Scrolling the mouse wheel over a Settings combo box no longer changes its value (the page scrolls instead). The duplicate "Open" button in the Review tab is fixed (the file picker is now "Browse"). Truncated button text fixed.
 
 ### v5.0

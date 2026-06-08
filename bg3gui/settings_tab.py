@@ -14,6 +14,7 @@ from . import theme
 from .i18n import t, t_for
 from .widgets.path_picker import PathPicker
 from .widgets.no_scroll_combo import NoScrollComboBox
+from .widgets.description_panel import DescriptionPanel, vertical_divider
 
 # 번역 대상 언어 선택은 번역 탭에만 둔다(설정 탭에서는 제거).
 _APP_LANG_OPTIONS = [("한국어", "ko"), ("English", "en")]
@@ -40,9 +41,13 @@ class SettingsTab(QWidget):
         container = QWidget()
         scroll.setWidget(container)
 
-        outer = QVBoxLayout(self)
+        # 좌측: 컨트롤(스크롤) ~50% · 우측: 기능 설명 패널 ~50%
+        outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(scroll)
+        outer.setSpacing(0)
+        outer.addWidget(scroll, stretch=1)
+        outer.addWidget(vertical_divider())
+        outer.addWidget(self._build_description_panel(), stretch=1)
 
         layout = QVBoxLayout(container)
         layout.setContentsMargins(20, 16, 20, 20)
@@ -55,7 +60,7 @@ class SettingsTab(QWidget):
         self._api_edit.setEchoMode(QLineEdit.EchoMode.Password)
         api_row.addWidget(self._api_edit)
         self._btn_show = QPushButton(t("settings.show"))
-        self._btn_show.setFixedWidth(56)
+        self._btn_show.setMinimumWidth(64)
         self._btn_show.setCheckable(True)
         self._btn_show.toggled.connect(self._toggle_api_visibility)
         api_row.addWidget(self._btn_show)
@@ -119,6 +124,18 @@ class SettingsTab(QWidget):
         layout.addWidget(self._lbl_status)
 
         layout.addStretch()
+
+    def _build_description_panel(self) -> DescriptionPanel:
+        items = [
+            (t("settings.api_key"), t("desc.settings.api_key")),
+            (t("settings.divine_path"), t("desc.settings.divine")),
+            (t("settings.ui_scale"), t("desc.settings.ui_scale")),
+            (t("settings.app_language"), t("desc.settings.app_lang")),
+            (t("settings.cache_path"), t("desc.settings.cache")),
+            (t("settings.skip_existing"), t("desc.settings.skip")),
+            (t("settings.mcm_enabled"), t("desc.settings.mcm")),
+        ]
+        return DescriptionPanel(t("desc.settings.heading"), items)
 
     def _toggle_api_visibility(self, checked: bool) -> None:
         if checked:

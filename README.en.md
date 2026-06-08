@@ -1,9 +1,18 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v5.0
+# BG3 Mod Translator v5.1
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
-Supports translation into **15 languages including Korean**, and works right out of the box with **a single EXE file** — no installation required.
+Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box with **a single EXE file** — no installation required.
+
+> ### 🌍 True Any-to-Any Translation (v5.1)
+> This is not just an "English → Korean" tool. **Whatever language the source is** (English, Russian, Chinese, Polish, etc.), it is auto-detected and translated into **any of the 15 target languages**.
+>
+> - Russian mod → **English**
+> - Polish mod → **Korean**
+> - English mod → **Japanese**
+>
+> Any source → any target combination works, and **English is now selectable as a target** too. Just change `Translation Target Language` in the Settings tab.
 
 ---
 
@@ -368,7 +377,9 @@ No. The original `.pak` file is never modified. A new translated `.pak` file is 
 The Gemini API free plan is sufficient for most use cases. However, translating many large mods may exceed the free quota. You can check usage at [Google AI Studio](https://aistudio.google.com).
 
 **Q. What languages can I translate into?**
-15 languages are supported: Korean, English, French, German, Spanish, Polish, Russian, Chinese (Simplified & Traditional), Turkish, Brazilian Portuguese, Italian, Latin Spanish, Ukrainian, and Japanese. Select the `Target Language` in the Settings tab.
+**15 languages** are supported: Korean, English, French, German, Spanish, Polish, Russian, Chinese (Simplified & Traditional), Turkish, Brazilian Portuguese, Italian, Latin Spanish, Ukrainian, and Japanese. The source language is auto-detected, so **a mod in any language** can be translated into your chosen target (e.g. a Russian mod into English, a Polish mod into Korean). Select the `Translation Target Language` in the Settings tab.
+
+> 💡 The glossary (forced proper-noun translation) is English→Korean only. Other target languages rely on AI translation quality, and you can fine-tune results in the Review tab if needed.
 
 **Q. I want to re-translate a mod I already translated.**
 Delete the existing translated `.pak` file and click the Start button again.
@@ -422,6 +433,12 @@ However, items that could break game functionality if auto-translated — such a
 ---
 
 ## Update History
+
+### v5.1
+- **🌍 True any-to-any translation engine**: In v5.0, choosing a target language only changed the output folder name — the text was always translated to Korean. Now it is **actually translated into the selected target language**. The source language is auto-detected, so **any language → any language** (e.g. Russian→English, Polish→Korean, English→Japanese) works, and **English is now selectable as a target**. The translation cache is namespaced per target language (existing Korean cache stays compatible).
+- **UI scale actually applied**: The UI scale setting now takes real effect on screen (applied at app startup; a restart notice is shown when changed).
+- **App UI language notice fixed**: When you change the UI language, the notice is shown **in the newly selected language**.
+- **UI bug fixes**: Scrolling the mouse wheel over a Settings combo box no longer changes its value (the page scrolls instead). The duplicate "Open" button in the Review tab is fixed (the file picker is now "Browse"). Truncated button text fixed.
 
 ### v5.0
 - **15 language support**: Korean (default), English, French, German, Spanish, Polish, Russian, Chinese Simplified, Turkish, Brazilian Portuguese, Italian, Latin Spanish, Chinese Traditional, Ukrainian, Japanese. The `target_language` field in Settings selects the translation target.

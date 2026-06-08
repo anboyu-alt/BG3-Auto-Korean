@@ -9,6 +9,7 @@ from PySide6.QtCore import QThread, Signal
 
 from bg3core.config import UserConfig, get_default_cache_path, get_default_log_dir
 from bg3core.pipeline import run_batch
+from bg3core.translate import set_active_models
 from bg3core.logger import CallbackLogger
 
 
@@ -50,6 +51,9 @@ class TranslationWorker(QThread):
 
         def on_progress(stage: str, current: int, total: int, message: str, pak_name=None):
             self.progress.emit(current, total, message)
+
+        # 사용자가 고른 모델을 엔진에 적용(1순위 → 폴백 순). 미설정 시 기본값 사용.
+        set_active_models(getattr(cfg, "model_preference", None))
 
         try:
             run_batch(

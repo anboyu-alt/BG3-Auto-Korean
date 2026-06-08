@@ -24,6 +24,11 @@ _LANG_OPTIONS = sorted(
 _FOLDER_TO_DISPLAY = {p.folder_name: p.display_name for p in _LANG_OPTIONS}
 _DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
 
+# 모델 선택 목록(기본 + 자주 쓰는 모델). 중복 제거, 순서 유지.
+_MODEL_OPTIONS = list(dict.fromkeys(
+    list(MODELS_TO_TRY) + ["gemini-2.5-flash", "gemini-2.5-pro"]
+))
+
 
 class TranslateTab(QWidget):
     def __init__(
@@ -66,7 +71,8 @@ class TranslateTab(QWidget):
         self._lang_combo.currentTextChanged.connect(self._on_lang_changed)
         lang_row.addWidget(self._lang_combo)
         self._model_combo = QComboBox()
-        self._model_combo.addItems(list(MODELS_TO_TRY))
+        self._model_combo.addItems(_MODEL_OPTIONS)
+        self._model_combo.currentTextChanged.connect(self._on_model_changed)
         lang_row.addWidget(self._model_combo)
         layout.addLayout(lang_row)
 
@@ -113,8 +119,19 @@ class TranslateTab(QWidget):
             _FOLDER_TO_DISPLAY.get(cfg.target_language, _LANG_OPTIONS[0].display_name)
         )
         self._lang_combo.blockSignals(False)
+        self._model_combo.blockSignals(True)
         if cfg.model_preference:
             self._model_combo.setCurrentText(cfg.model_preference[0])
+        self._model_combo.blockSignals(False)
+
+    def _on_model_changed(self, model_name: str) -> None:
+        """사용자가 AI 모델을 바꾸면 즉시 config에 영속화한다(엔진은 이 값을 1순위로 사용)."""
+        if not self._cfg or not model_name:
+            return
+        self._cfg.model_preference = [model_name]
+        save_config(self._cfg)
+        if self._on_config_saved:
+            self._on_config_saved(self._cfg)
 
     def _on_lang_changed(self, display_name: str) -> None:
         """사용자가 번역 대상 언어를 바꾸면 즉시 config에 영속화한다.

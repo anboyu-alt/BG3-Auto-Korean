@@ -35,6 +35,28 @@ _SKIP_PATTERNS = re.compile(
 
 _SYSTEM_INSTRUCTIONS: dict = {}
 
+# 사용자가 선택한 모델 우선순위. 번역 시작 전 set_active_models()로 한 번 설정하면
+# call_gemini가 이 순서대로 시도한다(미설정 시 MODELS_TO_TRY 기본값).
+_ACTIVE_MODELS: Optional[List[str]] = None
+
+
+def set_active_models(models: Optional[List[str]]) -> None:
+    """call_gemini가 사용할 모델 우선순위를 지정한다.
+
+    사용자가 고른 모델을 앞에 두고, 기본 MODELS_TO_TRY를 폴백으로 뒤에 덧붙여
+    중복 없이 합친다. models가 비어 있으면 기본값(MODELS_TO_TRY)으로 되돌린다.
+    """
+    global _ACTIVE_MODELS
+    if not models:
+        _ACTIVE_MODELS = None
+        return
+    effective: List[str] = []
+    for m in list(models) + list(MODELS_TO_TRY):
+        m = (m or "").strip()
+        if m and m not in effective:
+            effective.append(m)
+    _ACTIVE_MODELS = effective or None
+
 
 def load_translation_cache(cache_file: str) -> dict:
     global _translation_cache
@@ -284,7 +306,7 @@ def call_gemini(lines_text: str, filename: str,
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
     last_status = "unknown"
 
-    for model_name in MODELS_TO_TRY:
+    for model_name in (_ACTIVE_MODELS or MODELS_TO_TRY):
         url = f"{BASE_URL}/v1beta/models/{model_name}:generateContent"
         for attempt in range(1, 4):
             try:

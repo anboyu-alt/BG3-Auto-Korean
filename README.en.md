@@ -438,6 +438,7 @@ However, items that could break game functionality if auto-translated — such a
 - **🌍 True any-to-any translation engine**: In v5.0, choosing a target language only changed the output folder name — the text was always translated to Korean. Now it is **actually translated into the selected target language**. The source language is auto-detected, so **any language → any language** (e.g. Russian→English, Polish→Korean, English→Japanese) works, and **English is now selectable as a target**. The translation cache is namespaced per target language (existing Korean cache stays compatible).
 - **UI scale actually applied**: The UI scale setting now takes real effect on screen (applied at app startup; a restart notice is shown when changed).
 - **App UI language notice fixed**: When you change the UI language, the notice is shown **in the newly selected language**.
+- **AI model selection now works + UI consolidation**: The selected AI model is now actually used by the translation engine (previously the choice was ignored and a fixed model was always used). The target language and AI model selectors are unified into the **Translate tab** (duplicates removed from Settings). Your chosen model is tried first, with automatic fallback on failure.
 - **UI bug fixes**: Scrolling the mouse wheel over a Settings combo box no longer changes its value (the page scrolls instead). The duplicate "Open" button in the Review tab is fixed (the file picker is now "Browse"). Truncated button text fixed.
 
 ### v5.0

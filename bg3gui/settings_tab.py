@@ -69,14 +69,7 @@ class SettingsTab(QWidget):
         )
         layout.addWidget(self._divine_picker)
 
-        # ── Models ──
-        layout.addWidget(_row_label(t("settings.model_1")))
-        self._model1_combo = NoScrollComboBox()
-        layout.addWidget(self._model1_combo)
-
-        layout.addWidget(_row_label(t("settings.model_2")))
-        self._model2_combo = NoScrollComboBox()
-        layout.addWidget(self._model2_combo)
+        # AI 모델 선택은 번역 탭에만 둔다(설정 탭에서는 제거).
 
         # ── UI Scale ──
         layout.addWidget(_row_label(t("settings.ui_scale")))
@@ -139,15 +132,6 @@ class SettingsTab(QWidget):
         self._cfg = cfg
         self._api_edit.setText(cfg.api_key)
         self._divine_picker.set(cfg.divine_exe_path)
-        from bg3core.constants import MODELS_TO_TRY
-        models = list(MODELS_TO_TRY) + ["gemini-2.5-flash", "gemini-2.5-pro"]
-        for combo in (self._model1_combo, self._model2_combo):
-            combo.clear()
-            combo.addItems(models)
-        prefs = cfg.model_preference or []
-        if prefs:
-            self._model1_combo.setCurrentText(prefs[0] if len(prefs) > 0 else models[0])
-            self._model2_combo.setCurrentText(prefs[1] if len(prefs) > 1 else (models[1] if len(models) > 1 else models[0]))
         self._scale_combo.setCurrentText(cfg.ui_scale)
         self._app_lang_combo.setCurrentText(
             _APP_LANG_DISPLAY.get(cfg.app_language, "한국어")
@@ -160,10 +144,6 @@ class SettingsTab(QWidget):
         cfg = UserConfig()
         cfg.api_key = self._api_edit.text().strip()
         cfg.divine_exe_path = self._divine_picker.get()
-        cfg.model_preference = [
-            self._model1_combo.currentText(),
-            self._model2_combo.currentText(),
-        ]
         cfg.ui_scale = self._scale_combo.currentText()
         cfg.app_language = _APP_LANG_CODE.get(
             self._app_lang_combo.currentText(), "ko"
@@ -172,8 +152,9 @@ class SettingsTab(QWidget):
         cfg.skip_if_korean_exists = self._skip_check.isChecked()
         cfg.mcm_enabled = self._mcm_check.isChecked()
         if self._cfg:
-            # 번역 대상 언어는 번역 탭에서 관리하므로 설정 저장 시 기존 값을 보존한다.
+            # 번역 대상 언어·AI 모델은 번역 탭에서 관리하므로 설정 저장 시 기존 값을 보존한다.
             cfg.target_language = self._cfg.target_language
+            cfg.model_preference = self._cfg.model_preference
             cfg.last_pak_dir = self._cfg.last_pak_dir
             cfg.last_output_dir = self._cfg.last_output_dir
             cfg.log_dir = self._cfg.log_dir

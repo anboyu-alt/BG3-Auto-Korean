@@ -12,7 +12,11 @@ Translate a mod **from any language into any of 15 target languages including Ko
 > - Polish mod → **Korean**
 > - English mod → **Japanese**
 >
-> Any source → any target combination works, and **English is now selectable as a target** too. Just change `Translation Target Language` in the Settings tab.
+> Any source → any target combination works, and **English is now selectable as a target** too. Just change `Translation Target Language` in the Translate tab.
+
+![Target language selection — 15 languages](docs/images/01-translate-languages.png)
+
+> The **Translation Target Language** dropdown in the Translate tab. Pick any of 15 languages, from Korean to Japanese.
 
 ---
 
@@ -122,37 +126,17 @@ When the file picker opens, navigate to the folder where you extracted LSLib and
 
 > Example: `C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe`
 
-### ③ Select Target Language
+> 💡 **The target language and AI model are chosen in the "Translate" tab** — they are not in Settings. (See [Translating](#translating))
 
-Under `Target Language`, choose the language you want to translate the mod into.
+### ③ Select App UI Language
 
-| Language Code | Language |
-|---|---|
-| Korean (default) | Korean |
-| English | English |
-| French | French |
-| German | German |
-| Spanish | Spanish |
-| Polish | Polish |
-| Russian | Russian |
-| ChineseSimplified | Chinese (Simplified) |
-| Turkish | Turkish |
-| BrazilianPortuguese | Brazilian Portuguese |
-| Italian | Italian |
-| LatinSpanish | Latin Spanish |
-| ChineseTraditional | Chinese (Traditional) |
-| Ukrainian | Ukrainian |
-| Japanese | Japanese |
+Under `App UI Language`, choose the interface language for the program (Korean / English). This is the program's display language, not the translation output language, and it takes effect after a **restart**.
 
-### ④ Select App UI Language
+### ④ UI Scale (Optional)
 
-Under `App Language`, choose the interface language for the program (`ko` or `en`).
+`UI Scale` controls on-screen text and button size. If everything looks tiny on a high-res (4K) monitor, raise it to `1.25`–`2.0`; `auto` follows your monitor's DPI. Takes effect after a restart.
 
-### ⑤ Select AI Model
-
-You can leave this at the default value. (Default: `gemini-3.1-flash-lite`)
-
-### ⑥ Translation Cache File Path (Optional)
+### ⑤ Translation Cache File Path (Optional)
 
 The translation cache is a file that stores text you have already translated.
 
@@ -161,7 +145,7 @@ The translation cache is a file that stores text you have already translated.
 - When this file exists, the same text will be retrieved from the cache instead of calling the API again → **Faster translation + lower API usage**
 - **Never delete this file.** Deleting it causes all previously translated content to be forgotten and retranslated from scratch.
 
-### ⑦ Save
+### ⑥ Save
 
 Click the **"Save"** button.
 
@@ -174,9 +158,7 @@ After saving, click the **"Test Connection"** button to verify that your setting
 
 ## Translating
 
-Click **"Translate"** in the left sidebar.
-
-The Translate tab has a log-centric layout where you can monitor progress in real time.
+Click **"Translate"** in the left sidebar. The **right side always shows a description** of each item — handy if it's your first time. (Drag the middle handle to resize the description area.)
 
 ### Translation Steps
 
@@ -188,7 +170,21 @@ The Translate tab has a log-centric layout where you can monitor progress in rea
 > Mods are usually downloaded as `.zip` archives containing `.pak` files inside.
 > Extract the `.zip` first, then select the `.pak` file.
 
-**Step 2 — Start**
+**Step 2 — Select the Target Language**
+
+In the left combo box, pick the language to translate the mod into. The source language is auto-detected, so **a mod in any language** is translated into the one you pick.
+
+> Supported languages (15 total): Korean (default), English, Japanese, French, German, Spanish, Latin Spanish, Italian, Polish, Russian, Ukrainian, Turkish, Brazilian Portuguese, Chinese (Simplified), Chinese (Traditional)
+
+**Step 3 — Select the AI Model**
+
+In the right combo box, pick the Gemini model to use. Your chosen model is tried first, with automatic fallback to others on failure. If unsure, leave the default.
+
+![Translate tab — AI model selection](docs/images/02-translate-model.png)
+
+> 💡 The target language and AI model you pick here are **saved automatically** and kept for next time.
+
+**Step 4 — Start**
 
 Click the **"▶ Start"** button.
 
@@ -213,6 +209,8 @@ Once translation begins:
 ## Managing the Glossary
 
 Click **"Glossary"** in the left sidebar.
+
+![Glossary tab — built-in glossary](docs/images/04-glossary.png)
 
 The glossary is a list of proper terms the AI must follow when translating. For example, it forces "Karlach" to always be translated as "카를라크" (in Korean), and "Charisma" to always be translated as "매력".
 
@@ -243,6 +241,8 @@ You can add and manage custom proper nouns specific to a mod.
 AI translations may contain errors. In the Review tab, you can compare the original English text and the translation side by side, and edit directly.
 
 Click **"Review"** in the left sidebar.
+
+![Review tab — source vs. translation](docs/images/03-review.png)
 
 ### Review Steps
 
@@ -377,7 +377,7 @@ No. The original `.pak` file is never modified. A new translated `.pak` file is 
 The Gemini API free plan is sufficient for most use cases. However, translating many large mods may exceed the free quota. You can check usage at [Google AI Studio](https://aistudio.google.com).
 
 **Q. What languages can I translate into?**
-**15 languages** are supported: Korean, English, French, German, Spanish, Polish, Russian, Chinese (Simplified & Traditional), Turkish, Brazilian Portuguese, Italian, Latin Spanish, Ukrainian, and Japanese. The source language is auto-detected, so **a mod in any language** can be translated into your chosen target (e.g. a Russian mod into English, a Polish mod into Korean). Select the `Translation Target Language` in the Settings tab.
+**15 languages** are supported: Korean, English, French, German, Spanish, Polish, Russian, Chinese (Simplified & Traditional), Turkish, Brazilian Portuguese, Italian, Latin Spanish, Ukrainian, and Japanese. The source language is auto-detected, so **a mod in any language** can be translated into your chosen target (e.g. a Russian mod into English, a Polish mod into Korean). Select the `Translation Target Language` in the **Translate** tab.
 
 > 💡 The glossary (forced proper-noun translation) is English→Korean only. Other target languages rely on AI translation quality, and you can fine-tune results in the Review tab if needed.
 

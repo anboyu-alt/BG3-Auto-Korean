@@ -1,12 +1,13 @@
 from __future__ import annotations
 import threading
+from typing import Callable
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox,
     QMessageBox, QFileDialog,
 )
 
-from bg3core.config import UserConfig
+from bg3core.config import UserConfig, save_config
 from bg3core.language import LANGUAGE_PROFILES
 from bg3core.constants import MODELS_TO_TRY
 from . import theme
@@ -25,8 +26,13 @@ _DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
 
 
 class TranslateTab(QWidget):
-    def __init__(self, parent=None) -> None:
+    def __init__(
+        self,
+        on_config_saved: Callable[[UserConfig], None] | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
+        self._on_config_saved = on_config_saved
         self._cfg: UserConfig | None = None
         self._worker: TranslationWorker | None = None
         self._cancel_event = threading.Event()
@@ -57,6 +63,7 @@ class TranslateTab(QWidget):
         lang_row.setSpacing(8)
         self._lang_combo = QComboBox()
         self._lang_combo.addItems([p.display_name for p in _LANG_OPTIONS])
+        self._lang_combo.currentTextChanged.connect(self._on_lang_changed)
         lang_row.addWidget(self._lang_combo)
         self._model_combo = QComboBox()
         self._model_combo.addItems(list(MODELS_TO_TRY))
@@ -99,11 +106,28 @@ class TranslateTab(QWidget):
 
     def set_config(self, cfg: UserConfig) -> None:
         self._cfg = cfg
+        # 프로그램이 콤보를 채우는 동안에는 변경 시그널을 막아, 사용자 선택이
+        # 아닌 경우 저장이 트리거되지 않도록 한다.
+        self._lang_combo.blockSignals(True)
         self._lang_combo.setCurrentText(
             _FOLDER_TO_DISPLAY.get(cfg.target_language, _LANG_OPTIONS[0].display_name)
         )
+        self._lang_combo.blockSignals(False)
         if cfg.model_preference:
             self._model_combo.setCurrentText(cfg.model_preference[0])
+
+    def _on_lang_changed(self, display_name: str) -> None:
+        """사용자가 번역 대상 언어를 바꾸면 즉시 config에 영속화한다.
+
+        대상 언어 선택은 번역 탭에만 있으므로(설정 탭에서 제거됨) 여기서 저장해야
+        재시작 후에도 유지되고 상태바도 갱신된다.
+        """
+        if not self._cfg:
+            return
+        self._cfg.target_language = _DISPLAY_TO_FOLDER.get(display_name, "Korean")
+        save_config(self._cfg)
+        if self._on_config_saved:
+            self._on_config_saved(self._cfg)
 
     def _on_start(self) -> None:
         if not self._cfg:

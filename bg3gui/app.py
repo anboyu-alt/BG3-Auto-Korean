@@ -76,7 +76,7 @@ class App(QMainWindow):
 
         # Tabs
         self._settings_tab = SettingsTab(on_config_saved=self._on_config_saved)
-        self._translate_tab = TranslateTab()
+        self._translate_tab = TranslateTab(on_config_saved=self._on_config_saved)
         self._reviewer_tab = ReviewerTab()
         self._glossary_tab = GlossaryTab()
 

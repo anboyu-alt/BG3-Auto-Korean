@@ -10,19 +10,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer
 
 from bg3core.config import UserConfig, save_config
-from bg3core.language import LANGUAGE_PROFILES
 from . import theme
 from .i18n import t, t_for
 from .widgets.path_picker import PathPicker
 from .widgets.no_scroll_combo import NoScrollComboBox
 
-_LANG_OPTIONS = sorted(
-    LANGUAGE_PROFILES.values(),
-    key=lambda p: (0 if p.folder_name == "Korean" else 1, p.display_name),
-)
-_DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
-_FOLDER_TO_DISPLAY = {p.folder_name: p.display_name for p in _LANG_OPTIONS}
-
+# 번역 대상 언어 선택은 번역 탭에만 둔다(설정 탭에서는 제거).
 _APP_LANG_OPTIONS = [("한국어", "ko"), ("English", "en")]
 _APP_LANG_DISPLAY = {code: label for label, code in _APP_LANG_OPTIONS}
 _APP_LANG_CODE = {label: code for label, code in _APP_LANG_OPTIONS}
@@ -91,12 +84,6 @@ class SettingsTab(QWidget):
         self._scale_combo.addItems(["auto", "1.0", "1.25", "1.5", "1.75", "2.0"])
         layout.addWidget(self._scale_combo)
 
-        # ── Target Language ──
-        layout.addWidget(_row_label(t("settings.target_language")))
-        self._lang_combo = NoScrollComboBox()
-        self._lang_combo.addItems([p.display_name for p in _LANG_OPTIONS])
-        layout.addWidget(self._lang_combo)
-
         # ── App UI Language ──
         layout.addWidget(_row_label(t("settings.app_language")))
         self._app_lang_combo = NoScrollComboBox()
@@ -162,9 +149,6 @@ class SettingsTab(QWidget):
             self._model1_combo.setCurrentText(prefs[0] if len(prefs) > 0 else models[0])
             self._model2_combo.setCurrentText(prefs[1] if len(prefs) > 1 else (models[1] if len(models) > 1 else models[0]))
         self._scale_combo.setCurrentText(cfg.ui_scale)
-        self._lang_combo.setCurrentText(
-            _FOLDER_TO_DISPLAY.get(cfg.target_language, _LANG_OPTIONS[0].display_name)
-        )
         self._app_lang_combo.setCurrentText(
             _APP_LANG_DISPLAY.get(cfg.app_language, "한국어")
         )
@@ -181,9 +165,6 @@ class SettingsTab(QWidget):
             self._model2_combo.currentText(),
         ]
         cfg.ui_scale = self._scale_combo.currentText()
-        cfg.target_language = _DISPLAY_TO_FOLDER.get(
-            self._lang_combo.currentText(), "Korean"
-        )
         cfg.app_language = _APP_LANG_CODE.get(
             self._app_lang_combo.currentText(), "ko"
         )
@@ -191,6 +172,8 @@ class SettingsTab(QWidget):
         cfg.skip_if_korean_exists = self._skip_check.isChecked()
         cfg.mcm_enabled = self._mcm_check.isChecked()
         if self._cfg:
+            # 번역 대상 언어는 번역 탭에서 관리하므로 설정 저장 시 기존 값을 보존한다.
+            cfg.target_language = self._cfg.target_language
             cfg.last_pak_dir = self._cfg.last_pak_dir
             cfg.last_output_dir = self._cfg.last_output_dir
             cfg.log_dir = self._cfg.log_dir

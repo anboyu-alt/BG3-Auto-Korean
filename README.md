@@ -1,6 +1,6 @@
 **한국어** | [English](README.en.md)
 
-# BG3 Mod Translator v5.1
+# BG3 Mod Translator v5.2
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를 Google Gemini AI로 자동 번역하는 도구입니다.
 **어떤 언어의 모드든 한국어를 포함한 15개 언어 중 원하는 언어로** 번역할 수 있으며, 설치 없이 **EXE 파일 하나**로 바로 사용할 수 있습니다.

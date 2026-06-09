@@ -1,6 +1,6 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v5.1
+# BG3 Mod Translator v5.2
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
 Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box with **a single EXE file** — no installation required.

@@ -20,6 +20,16 @@ Translate a mod **from any language into any of 15 target languages including Ko
 
 ---
 
+## ⚠️ Important — Output is for personal use only
+
+This tool unpacks the original mod (`.pak`), adds translations, and **repacks the whole thing.** As a result, the output `.pak` **contains the original author's assets and scripts.**
+
+- ✅ Use it freely for **your own personal play**.
+- ❌ **Do NOT upload or redistribute** the output `.pak` to Nexus or any other site **without the original author's explicit permission.** Doing so violates the original author's rights and Nexus rules, and can lead to suspension or an account ban.
+- If you want to share a translation, **get the original author's permission first.**
+
+---
+
 ## ⬇️ Download the GUI Version
 
 > **An EXE version you can use immediately without installing Python.**

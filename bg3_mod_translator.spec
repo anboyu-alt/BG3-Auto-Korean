@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec — BG3 Mod Translator v5.1.1 (PySide6)
+# PyInstaller spec — BG3 Mod Translator v5.2 (PySide6)
 # 빌드 명령: pyinstaller bg3_mod_translator.spec
 
 import sys

@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from bg3core.mcm.loca_handles import mirror_to_source_languages as mirror_korean_to_source_languages
+from bg3core.mcm.loca_handles import mirror_loca_to_source_languages
 
 
-def _make_loca(tmp_path, files):
-    """files: dict {lang_name: {filename: content}}"""
+def _make(tmp_path, files):
+    """files: dict {lang_name: {filename: content}} — Localization 트리 생성."""
     root = tmp_path / "mod"
     loc = root / "Localization"
     for lang, entries in files.items():
@@ -15,70 +15,66 @@ def _make_loca(tmp_path, files):
     return root
 
 
-def test_mirror_overwrites_english_with_korean(tmp_path):
-    root = _make_loca(tmp_path, {
-        "English": {"mod_en.xml": "<en/>"},
-        "Korean": {"mod_en.xml": "<ko-translated/>"},
+def test_mirror_copies_loca_and_preserves_english_xml(tmp_path):
+    """.loca는 한글로 복사하되, 영어 .xml 원문은 그대로 보존한다(검수·원문 유지)."""
+    root = _make(tmp_path, {
+        "English": {"english.xml": "<en-source/>", "english.loca": "EN-LOCA"},
+        "Korean": {"english.xml": "<ko/>", "english.loca": "KO-LOCA"},
     })
-    mirrored = mirror_korean_to_source_languages(root)
+    mirrored = mirror_loca_to_source_languages(root)
     assert mirrored == 1
-    assert (root / "Localization" / "English" / "mod_en.xml").read_text(encoding="utf-8") == "<ko-translated/>"
-    # Korean 폴더는 그대로
-    assert (root / "Localization" / "Korean" / "mod_en.xml").read_text(encoding="utf-8") == "<ko-translated/>"
+    loc = root / "Localization"
+    # .loca는 한글 내용으로 덮어써짐
+    assert (loc / "English" / "english.loca").read_text(encoding="utf-8") == "KO-LOCA"
+    # .xml 영어 원문은 보존
+    assert (loc / "English" / "english.xml").read_text(encoding="utf-8") == "<en-source/>"
+    # Korean은 그대로
+    assert (loc / "Korean" / "english.loca").read_text(encoding="utf-8") == "KO-LOCA"
 
 
-def test_mirror_skips_when_no_korean(tmp_path):
-    root = _make_loca(tmp_path, {
-        "English": {"mod_en.xml": "<en/>"},
+def test_mirror_does_not_touch_xml_even_without_loca(tmp_path):
+    """소스 폴더에 .loca가 없으면 아무것도 덮어쓰지 않고 .xml도 보존."""
+    root = _make(tmp_path, {
+        "English": {"english.xml": "<en-source/>"},  # .loca 없음
+        "Korean": {"english.xml": "<ko/>", "english.loca": "KO-LOCA"},
     })
-    mirrored = mirror_korean_to_source_languages(root)
+    mirrored = mirror_loca_to_source_languages(root)
     assert mirrored == 0
-    assert (root / "Localization" / "English" / "mod_en.xml").read_text(encoding="utf-8") == "<en/>"
+    loc = root / "Localization"
+    assert (loc / "English" / "english.xml").read_text(encoding="utf-8") == "<en-source/>"
+    assert not (loc / "English" / "english.loca").exists()
 
 
-def test_mirror_only_when_target_has_same_name(tmp_path):
-    """Korean에 있는 파일과 동명 파일이 있는 언어 폴더에만 덮어쓴다."""
-    root = _make_loca(tmp_path, {
-        "English": {"mod_en.xml": "<en/>"},
-        "French": {"mod_fr.xml": "<fr/>"},  # 이름이 다름
-        "Korean": {"mod_en.xml": "<ko-translated/>"},
+def test_mirror_skips_when_no_target_loca(tmp_path):
+    root = _make(tmp_path, {
+        "English": {"english.xml": "<en/>", "english.loca": "EN-LOCA"},
+        "Korean": {"english.xml": "<ko/>"},  # target에 .loca 없음
     })
-    mirror_korean_to_source_languages(root)
-    # English는 덮어쓰기
-    assert (root / "Localization" / "English" / "mod_en.xml").read_text(encoding="utf-8") == "<ko-translated/>"
-    # French는 같은 이름 파일 없으므로 안 건드림
-    assert (root / "Localization" / "French" / "mod_fr.xml").read_text(encoding="utf-8") == "<fr/>"
-    assert not (root / "Localization" / "French" / "mod_en.xml").exists()
+    mirrored = mirror_loca_to_source_languages(root)
+    assert mirrored == 0
+    assert (root / "Localization" / "English" / "english.loca").read_text(encoding="utf-8") == "EN-LOCA"
 
 
-def test_mirror_overwrites_both_xml_and_loca_xml_with_same_prefix(tmp_path):
-    """한글 english.xml 하나로 English/english.xml + English/english.loca.xml 둘 다 덮어쓰기.
-
-    DBW/Viltrumite 모드처럼 PAK에 english.xml + english.loca가 모두 있는 경우,
-    추출 후 영어 폴더에 english.xml과 english.loca.xml이 공존한다. 미러는 한글
-    내용으로 둘 다 갱신해야 .loca 역변환 시 한글이 살아남는다.
-    """
-    root = _make_loca(tmp_path, {
-        "English": {
-            "english.xml": "<en/>",
-            "english.loca.xml": "<en-loca/>",
-        },
-        "Korean": {"english.xml": "<ko/>"},
+def test_mirror_only_when_prefix_matches(tmp_path):
+    """prefix(파일명 베이스)가 같은 .loca에만 복사한다."""
+    root = _make(tmp_path, {
+        "English": {"english.loca": "EN-LOCA"},
+        "French": {"french.loca": "FR-LOCA"},   # prefix 다름
+        "Korean": {"english.loca": "KO-LOCA"},
     })
-    mirrored = mirror_korean_to_source_languages(root)
-    assert mirrored == 2  # english.xml + english.loca.xml 둘 다
-    assert (root / "Localization" / "English" / "english.xml").read_text(encoding="utf-8") == "<ko/>"
-    assert (root / "Localization" / "English" / "english.loca.xml").read_text(encoding="utf-8") == "<ko/>"
+    mirror_loca_to_source_languages(root)
+    loc = root / "Localization"
+    assert (loc / "English" / "english.loca").read_text(encoding="utf-8") == "KO-LOCA"
+    assert (loc / "French" / "french.loca").read_text(encoding="utf-8") == "FR-LOCA"
 
 
 def test_mirror_multiple_localization_folders(tmp_path):
-    """모드 안에 Localization 폴더가 여러 개 있을 때 모두 처리."""
     root = tmp_path / "mod"
     for sub in ["Mods/A", "Mods/B"]:
         d = root / sub / "Localization"
         (d / "English").mkdir(parents=True)
         (d / "Korean").mkdir(parents=True)
-        (d / "English" / "x.xml").write_text("<en/>", encoding="utf-8")
-        (d / "Korean" / "x.xml").write_text("<ko/>", encoding="utf-8")
-    mirrored = mirror_korean_to_source_languages(root)
+        (d / "English" / "x.loca").write_text("EN", encoding="utf-8")
+        (d / "Korean" / "x.loca").write_text("KO", encoding="utf-8")
+    mirrored = mirror_loca_to_source_languages(root)
     assert mirrored == 2

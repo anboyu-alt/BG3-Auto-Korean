@@ -14,6 +14,7 @@ from PySide6.QtGui import QKeySequence, QShortcut
 
 from bg3core.config import UserConfig
 from bg3core.divine import divine_extract, divine_repack, ensure_loca
+from bg3core.mcm.loca_handles import mirror_loca_to_source_languages
 from bg3core.reviewer import Entry, ReviewFile, load_review_files, save_modified_xml
 from . import theme
 from .i18n import t
@@ -247,6 +248,12 @@ class ReviewerTab(QWidget):
         for rf in modified:
             save_modified_xml(rf)
         ensure_loca(self._cfg.divine_exe_path, self._temp_dir, force=True)
+        # 번역 파이프라인과 동일하게: 영어 원문 .xml은 보존하고 번역된 .loca를
+        # 소스 언어 폴더 .loca로 복사(영어 핸들을 읽는 모드의 인게임 번역 유지).
+        mirror_loca_to_source_languages(
+            self._temp_dir,
+            target_folder=getattr(self._cfg, "target_language", "Korean"),
+        )
         out_pak = self._pak_path.parent / f"{self._pak_path.stem}_Reviewed.pak"
         if divine_repack(self._cfg.divine_exe_path, self._temp_dir, out_pak):
             QMessageBox.information(self, t("common.info"), t("review.saved_ok", path=out_pak.name))

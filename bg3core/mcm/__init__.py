@@ -21,7 +21,6 @@ from .lua_handler import find_lua_files, process_lua_files
 from .loca_handles import (
     find_flat_loca_xmls,
     process_flat_localizations,
-    mirror_to_source_languages,
 )
 
 
@@ -67,11 +66,10 @@ def process_mcm_for_mod(
         logger=logger,
         target_profile=target_profile,
     )
-    mirrored = mirror_to_source_languages(
-        unpacked_root,
-        target_folder=target_profile.folder_name,
-        logger=logger,
-    )
+    # 원문 보존: 영어 .xml을 덮어쓰던 미러는 제거됨. 번역을 영어 폴더에도 보이게
+    # 하는 처리는 .loca 생성 후 pipeline의 mirror_loca_to_source_languages가 담당한다
+    # (.xml은 보존하고 .loca만 복사 → 검수·원문 유지 + 인게임 번역 동시 충족).
+    mirrored = 0
     bp_stats = process_blueprints(unpacked_root, translate_fn, logger=logger)
     lua_stats = process_lua_files(
         unpacked_root, translate_fn,

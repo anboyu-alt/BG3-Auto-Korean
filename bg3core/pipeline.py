@@ -15,6 +15,7 @@ from .translate import (
     process_xml_file, load_translation_cache, save_translation_cache,
 )
 from .mcm import process_mcm_for_mod
+from .mcm.loca_handles import mirror_loca_to_source_languages
 
 
 def find_localization_folders(root_path: Path) -> List[Path]:
@@ -246,6 +247,15 @@ def process_pak_file(
     generated = ensure_loca(divine_path, temp_dir, logger=logger)
     if generated > 0:
         _log(f"  🧩 .loca 생성: {generated}개")
+
+    # 일부 모드는 게임 언어와 무관하게 영어 Localization에서 텍스트를 읽는다. 영어
+    # .xml 원문은 보존하면서, 번역된 .loca를 영어 등 소스 언어 폴더의 .loca로 복사해
+    # 인게임 번역 표시를 보장한다(검수·원문 유지와 양립).
+    mirrored_loca = mirror_loca_to_source_languages(
+        temp_dir, target_folder=target_profile.folder_name, logger=logger
+    )
+    if mirrored_loca > 0:
+        _log(f"  🧩 .loca 미러: {mirrored_loca}개 (원문 .xml 보존)")
 
     save_translation_cache(cache_file)
 

@@ -444,6 +444,10 @@ However, items that could break game functionality if auto-translated — such a
 
 ## Update History
 
+### v5.1.1
+- **Crash fix**: Fixed a crash that aborted the whole run while logging a warning during the `.loca` build step on some mods (`CallbackLogger` was missing `warning`). Now if `.loca` conversion fails, it just logs a warning and continues.
+- **Clearer errors**: When a translation chunk fails due to API rate/quota limits (429) etc., the log now shows the real cause (e.g. `rate_limited (429)`) instead of "unknown".
+
 ### v5.1
 - **🌍 True any-to-any translation engine**: In v5.0, choosing a target language only changed the output folder name — the text was always translated to Korean. Now it is **actually translated into the selected target language**. The source language is auto-detected, so **any language → any language** (e.g. Russian→English, Polish→Korean, English→Japanese) works, and **English is now selectable as a target**. The translation cache is namespaced per target language (existing Korean cache stays compatible).
 - **UI scale actually applied**: The UI scale setting now takes real effect on screen (applied at app startup; a restart notice is shown when changed).

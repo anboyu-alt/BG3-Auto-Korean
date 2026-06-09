@@ -27,6 +27,10 @@ class CallbackLogger:
     def warn(self, text: str) -> None:
         self._emit("warn", text)
 
+    # 표준 logging 모듈과 동일한 이름. 일부 호출부가 logger.warning()을 쓰므로 별칭 제공.
+    def warning(self, text: str) -> None:
+        self._emit("warn", text)
+
     def error(self, text: str) -> None:
         self._emit("error", text)
 

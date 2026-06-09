@@ -339,6 +339,8 @@ def call_gemini(lines_text: str, filename: str,
                     pass
 
                 if e.code == 429:
+                    # API 사용량 한도. 명확히 표시(이전엔 상태 미설정으로 "unknown"이 떴음).
+                    last_status = f"rate_limited (429) — API 사용량 한도 초과 ({model_name})"
                     wait = 10 + attempt * 15
                     print(f"        [!] 429 제한. {wait}초 대기 ({model_name})")
                     for _ in range(wait):
@@ -350,6 +352,7 @@ def call_gemini(lines_text: str, filename: str,
                     last_status = f"404 ({model_name})"
                     break
                 elif e.code >= 500:
+                    last_status = f"server_error {e.code} ({model_name})"
                     time.sleep(5 * attempt)
                     continue
                 else:

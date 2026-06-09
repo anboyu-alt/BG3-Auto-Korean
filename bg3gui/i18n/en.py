@@ -49,7 +49,7 @@ STRINGS = {
     "desc.settings.app_lang": "The language of this program's interface (Korean/English). This is the app UI language, not the translation output language. Takes effect after a restart.",
     "desc.settings.cache": "A file that stores already-translated text for reuse (faster, saves API usage). Leave empty to auto-create at the default location. Do not delete it.",
     "desc.settings.skip": "If a translated build (_<language>.pak) already exists, it is skipped instead of being re-translated.",
-    "desc.settings.mcm": "Also auto-translates blueprint and Lua text in mods that depend on the MCM configuration menu.",
+    "desc.settings.mcm": "Also auto-translates blueprint and Lua text in mods that depend on the MCM configuration menu. It has no effect on regular mods (auto-detected), so you can just leave it on.",
     "desc.translate.heading": "Translate Guide",
     "desc.translate.file": "Pick the .pak file to translate with 'Browse'. Use the 📁 button to pick a folder and translate every .pak inside it at once.",
     "desc.translate.lang": "The target language to translate the mod into. The source language is auto-detected, so any language is translated into this one.",

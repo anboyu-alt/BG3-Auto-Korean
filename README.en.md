@@ -444,6 +444,11 @@ However, items that could break game functionality if auto-translated — such a
 
 ## Update History
 
+### v5.2
+- **Keeps the English original AND shows the translation**: The output PAK now preserves the original English `.xml`. Previously, some mods (especially MCM) had their English source overwritten by the translation, so the Review tab showed Korean as the "English source". Now the English `.xml` is preserved and only the translated `.loca` is mirrored into source-language folders — satisfying review, original preservation, and in-game display all at once.
+- **AI model guide**: The Translate tab's help panel now explains each model's trade-offs (speed/cost/quality) with a selection tip.
+- **MCM guidance**: MCM auto-processing has no effect on regular mods, so you can just leave it on.
+
 ### v5.1.1
 - **Crash fix**: Fixed a crash that aborted the whole run while logging a warning during the `.loca` build step on some mods (`CallbackLogger` was missing `warning`). Now if `.loca` conversion fails, it just logs a warning and continues.
 - **Clearer errors**: When a translation chunk fails due to API rate/quota limits (429) etc., the log now shows the real cause (e.g. `rate_limited (429)`) instead of "unknown".

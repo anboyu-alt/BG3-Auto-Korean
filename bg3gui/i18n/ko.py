@@ -53,7 +53,7 @@ STRINGS = {
     "desc.translate.heading": "번역 도움말",
     "desc.translate.file": "번역할 .pak 파일을 '찾기'로 선택합니다. 📁 버튼으로 폴더를 고르면 폴더 안의 모든 .pak을 한 번에 번역합니다.",
     "desc.translate.lang": "모드를 번역할 목표 언어입니다. 원본 언어는 자동으로 인식되어 어떤 언어든 이 언어로 번역됩니다.",
-    "desc.translate.model": "번역에 사용할 Gemini 모델입니다. 고른 모델을 1순위로 시도하고, 실패하면 자동으로 다른 모델로 폴백합니다.",
+    "desc.translate.model": "번역에 사용할 Gemini 모델입니다. 고른 모델을 1순위로 시도하고, 실패하면 자동으로 다른 모델로 폴백합니다. 모든 모델이 큰 컨텍스트를 지원하고 앱이 ~4000토큰 단위로 나눠 보내므로 토큰 한도 걱정은 없습니다.\n\n• gemini-3.1-flash-lite — 최신 경량. 빠르고 저렴, 대부분의 모드에 권장(기본값).\n• gemini-2.5-flash-lite — 빠르고 저렴한 폴백. 대량 모드에 무난.\n• gemini-2.5-flash — 속도·품질 균형. lite 품질이 아쉬울 때.\n• gemini-2.5-pro — 최고 품질. 대신 가장 느리고 API 사용량·비용이 큼. 중요한 모드 정밀 번역용.\n\n팁: 무료 한도가 걱정되면 lite 계열, 번역 품질이 우선이면 pro.",
     "desc.translate.controls": "▶로 번역을 시작하고, ⏸로 잠시 멈추거나 ⏹로 완전히 중단합니다. 진행률과 로그는 아래에 실시간으로 표시됩니다.",
     "desc.review.heading": "검수 도움말",
     "desc.review.open": "번역된 _언어.pak을 '찾기'로 고른 뒤 '열기'로 불러옵니다.",

@@ -53,7 +53,7 @@ STRINGS = {
     "desc.translate.heading": "Translate Guide",
     "desc.translate.file": "Pick the .pak file to translate with 'Browse'. Use the 📁 button to pick a folder and translate every .pak inside it at once.",
     "desc.translate.lang": "The target language to translate the mod into. The source language is auto-detected, so any language is translated into this one.",
-    "desc.translate.model": "The Gemini model used for translation. Your chosen model is tried first, with automatic fallback to others on failure.",
+    "desc.translate.model": "The Gemini model used for translation. Your chosen model is tried first, with automatic fallback to others on failure. All models support large context and the app splits text into ~4000-token chunks, so token limits aren't a concern.\n\n• gemini-3.1-flash-lite — newest lightweight. Fast and cheap; recommended for most mods (default).\n• gemini-2.5-flash-lite — fast, cheap fallback. Fine for large mods.\n• gemini-2.5-flash — balanced speed and quality. When lite isn't quite enough.\n• gemini-2.5-pro — highest quality, but slowest and the most API usage/cost. For important mods needing precise translation.\n\nTip: pick a lite model if you're watching the free quota, or pro if quality matters most.",
     "desc.translate.controls": "Press ▶ to start, ⏸ to pause, or ⏹ to stop completely. Progress and logs are shown live below.",
     "desc.review.heading": "Review Guide",
     "desc.review.open": "Pick a translated _<language>.pak with 'Browse', then load it with 'Open'.",

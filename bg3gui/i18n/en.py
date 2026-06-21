@@ -73,6 +73,7 @@ STRINGS = {
     "review.next": "Next ▶",
     "review.save": "Save (Ctrl+S)",
     "review.modified_only": "Show Modified Only",
+    "review.toggle_help": "Help",
     "review.all": "Show All",
     "review.nav": "Item {idx} / {total}",
     "review.count": "{total} items · {modified} edited",

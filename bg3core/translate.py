@@ -15,6 +15,7 @@ from .constants import (
     MODELS_TO_TRY, BASE_URL, TIMEOUT_SEC, DOWNSHIFT_TOKEN_STEPS,
 )
 from .glossary import GLOSSARY, try_glossary_only, build_glossary_prompt_section, apply_glossary
+from .official_glossary import lookup_official, build_official_prompt_section
 from .language import (
     LanguageProfile, DEFAULT_PROFILE, prompt_language_name, script_ratio,
 )
@@ -293,10 +294,14 @@ def call_gemini(lines_text: str, filename: str,
                 chunk_index: int, total_chunks: int,
                 api_key: str,
                 cancel_event: Optional[threading.Event] = None,
-                target_profile: LanguageProfile = DEFAULT_PROFILE) -> Tuple[Optional[str], str]:
+                target_profile: LanguageProfile = DEFAULT_PROFILE,
+                extra_context: str = "") -> Tuple[Optional[str], str]:
+    user_text = f"[파일: {filename} ({chunk_index}/{total_chunks})]\n{lines_text}"
+    if extra_context:
+        user_text = f"{extra_context}\n{user_text}"
     payload = {
         "system_instruction": {"parts": [{"text": get_system_instruction(target_profile)}]},
-        "contents": [{"parts": [{"text": f"[파일: {filename} ({chunk_index}/{total_chunks})]\n{lines_text}"}]}],
+        "contents": [{"parts": [{"text": user_text}]}],
         "generationConfig": {
             "temperature": 0.1,
             "thinkingConfig": {"thinkingBudget": 0},
@@ -391,6 +396,7 @@ def process_xml_file(
     pause_event: Optional[threading.Event] = None,
     logger: Optional["CallbackLogger"] = None,
     target_profile: LanguageProfile = DEFAULT_PROFILE,
+    official: Optional[Dict[str, str]] = None,
 ) -> str:
     use_glossary = target_profile.folder_name == "Korean"
 
@@ -431,7 +437,7 @@ def process_xml_file(
 
     translated_map: dict = {}
     unique_list = sorted(unique_texts.items(), key=lambda x: x[1])
-    stats_cache = stats_skip = stats_glossary = 0
+    stats_cache = stats_skip = stats_glossary = stats_official = 0
     need_api: List[Tuple[str, int]] = []
 
     for text, idx in unique_list:
@@ -445,11 +451,15 @@ def process_xml_file(
             translated_map[idx] = escape_unescaped_angle_brackets(hit)
             cache_put(text, hit, target_profile)
             stats_glossary += 1
+        elif official and (off := lookup_official(text, official)) is not None:
+            translated_map[idx] = escape_unescaped_angle_brackets(off)
+            cache_put(text, off, target_profile)
+            stats_official += 1
         else:
             need_api.append((text, idx))
 
-    local_total = stats_cache + stats_skip + stats_glossary
-    _log(f"    -> Local: cache {stats_cache} + skip {stats_skip} + glossary {stats_glossary} = {local_total}")
+    local_total = stats_cache + stats_skip + stats_glossary + stats_official
+    _log(f"    -> Local: cache {stats_cache} + skip {stats_skip} + glossary {stats_glossary} + official {stats_official} = {local_total}")
     _log(f"    -> Need API: {len(need_api)}")
 
     if need_api:
@@ -482,10 +492,16 @@ def process_xml_file(
                 for idx, protected, _, _ in chunk:
                     lines.append(f"{idx}|{protected.replace(chr(10), chr(92) + 'n')}")
 
+                extra_context = ""
+                if official:
+                    chunk_src = "\n".join(orig for _, _, _, orig in chunk)
+                    extra_context = build_official_prompt_section(chunk_src, official)
+
                 raw, status = call_gemini(
                     "\n".join(lines), filename, cidx, len(chunks), api_key,
                     cancel_event=cancel_event,
                     target_profile=target_profile,
+                    extra_context=extra_context,
                 )
 
                 if raw is None:

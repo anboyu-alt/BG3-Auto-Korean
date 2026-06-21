@@ -14,6 +14,7 @@ from .language import LanguageProfile, get_profile, is_already_translated, DEFAU
 from .translate import (
     process_xml_file, load_translation_cache, save_translation_cache,
 )
+from .official_glossary import extract_official_glossary
 from .mcm import process_mcm_for_mod
 from .mcm.loca_handles import mirror_loca_to_source_languages
 
@@ -47,6 +48,7 @@ def translate_unpacked_mod(
     pause_event: Optional[threading.Event] = None,
     on_progress: Optional[Callable] = None,
     logger: Optional["CallbackLogger"] = None,
+    official: Optional[dict] = None,
 ) -> bool:
     def _log(text: str) -> None:
         if logger:
@@ -129,6 +131,7 @@ def translate_unpacked_mod(
                 pause_event=pause_event,
                 logger=logger,
                 target_profile=target_profile,
+                official=official,
             )
 
             out_file = target_path / xml_file.name
@@ -153,6 +156,7 @@ def process_pak_file(
     pause_event: Optional[threading.Event] = None,
     on_progress: Optional[Callable] = None,
     logger: Optional["CallbackLogger"] = None,
+    official: Optional[dict] = None,
 ) -> bool:
     def _log(text: str) -> None:
         if logger:
@@ -197,6 +201,7 @@ def process_pak_file(
         pause_event=pause_event,
         on_progress=on_progress,
         logger=logger,
+        official=official,
     )
 
     mcm_changed = False
@@ -287,6 +292,8 @@ def run_batch(
     pause_event: Optional[threading.Event] = None,
     on_progress: Optional[Callable] = None,
     logger: Optional["CallbackLogger"] = None,
+    bg3_install_path: str = "",
+    use_official_glossary: bool = False,
 ) -> None:
     def _log(text: str) -> None:
         if logger:
@@ -298,6 +305,21 @@ def run_batch(
         return
 
     load_translation_cache(cache_file)
+
+    # ④ 공식 언어팩 참조 사전: 활성화 시 게임 팩에서 한 번 빌드(또는 캐시 로드)해
+    # 모든 pak 처리에 공유한다. 비활성/미발견이면 None → 기존 동작.
+    official = None
+    if use_official_glossary:
+        try:
+            official = extract_official_glossary(
+                divine_path, bg3_install_path, target_profile.folder_name,
+                logger=logger,
+            )
+            if official is None:
+                _log("  ℹ️ Official glossary unavailable (check BG3 path / language pack)")
+        except Exception as e:
+            _log(f"  ⚠️ Official glossary build failed: {e} — continuing without it")
+            official = None
 
     target = Path(target_pak)
 
@@ -314,6 +336,7 @@ def run_batch(
             pause_event=pause_event,
             on_progress=on_progress,
             logger=logger,
+            official=official,
         )
 
     elif target.is_dir():
@@ -344,6 +367,7 @@ def run_batch(
                 pause_event=pause_event,
                 on_progress=on_progress,
                 logger=logger,
+                official=official,
             )
             if result:
                 stats["done"] += 1

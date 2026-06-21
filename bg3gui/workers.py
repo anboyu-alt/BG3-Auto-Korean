@@ -70,6 +70,8 @@ class TranslationWorker(QThread):
                 pause_event=self.pause_event,
                 on_progress=on_progress,
                 logger=logger,
+                bg3_install_path=getattr(cfg, "bg3_install_path", ""),
+                use_official_glossary=getattr(cfg, "use_official_glossary", False),
             )
             self.finished.emit()
         except InterruptedError:

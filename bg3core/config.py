@@ -24,6 +24,7 @@ class UserConfig:
     target_language: str = "Korean"
     app_language: str = "ko"      # "ko" | "en" | ... (v6.0: 15개 언어)
     bg3_install_path: str = ""    # …\Baldurs Gate 3 (공식 언어팩 참조·게임 언어 자동감지에 사용)
+    use_official_glossary: bool = False  # ④ 공식 언어팩(English↔대상)을 번역 기준으로 참조
 
 
 def get_config_dir() -> Path:

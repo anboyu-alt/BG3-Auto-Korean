@@ -41,3 +41,10 @@ repair_report_*.md
 
 # 테스트 파일
 *-test.py
+
+# pytest 임시 산출물 (tmp_path 등 — 커밋 금지)
+pytest-of-*/
+.pytest_cache/
+
+# 개인 환경용 에이전트 지침 (context-mode 라우팅 등 — repo 비포함)
+/CLAUDE.md

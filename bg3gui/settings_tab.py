@@ -107,6 +107,8 @@ class SettingsTab(QWidget):
         layout.addWidget(self._skip_check)
         self._mcm_check = QCheckBox(t("settings.mcm_enabled"))
         layout.addWidget(self._mcm_check)
+        self._official_check = QCheckBox(t("settings.use_official_glossary"))
+        layout.addWidget(self._official_check)
 
         # ── Divider ──
         div = QFrame()
@@ -144,6 +146,7 @@ class SettingsTab(QWidget):
             (t("settings.cache_path"), t("desc.settings.cache")),
             (t("settings.skip_existing"), t("desc.settings.skip")),
             (t("settings.mcm_enabled"), t("desc.settings.mcm")),
+            (t("settings.use_official_glossary"), t("desc.settings.official")),
         ]
         return DescriptionPanel(t("desc.settings.heading"), items)
 
@@ -168,6 +171,7 @@ class SettingsTab(QWidget):
         self._cache_picker.set(cfg.cache_path)
         self._skip_check.setChecked(cfg.skip_if_korean_exists)
         self._mcm_check.setChecked(cfg.mcm_enabled)
+        self._official_check.setChecked(getattr(cfg, "use_official_glossary", False))
 
     def _build_config(self) -> UserConfig:
         cfg = UserConfig()
@@ -181,6 +185,7 @@ class SettingsTab(QWidget):
         cfg.cache_path = self._cache_picker.get()
         cfg.skip_if_korean_exists = self._skip_check.isChecked()
         cfg.mcm_enabled = self._mcm_check.isChecked()
+        cfg.use_official_glossary = self._official_check.isChecked()
         if self._cfg:
             # 번역 대상 언어·AI 모델은 번역 탭에서 관리하므로 설정 저장 시 기존 값을 보존한다.
             cfg.target_language = self._cfg.target_language

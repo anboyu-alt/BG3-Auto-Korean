@@ -1,6 +1,6 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v5.2
+# BG3 Mod Translator v6.0
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
 Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box with **a single EXE file** — no installation required.
@@ -443,6 +443,15 @@ However, items that could break game functionality if auto-translated — such a
 ---
 
 ## Update History
+
+### v6.0
+- **🌍 Full 15-language app UI**: The program interface itself is now available in **all 15 languages**, not just English/Korean. On first launch it **auto-detects your game's language** and matches both the translation target and the app UI to it. (Missing strings fall back to English.)
+- **📖 Official language pack reference (new)**: When enabled in Settings, the tool uses your installed game's **official language packs** (English ↔ target) as a translation reference. Mod text that exactly matches an official term **reuses the official translation** (saving API calls), and official terms inside sentences are injected into the AI prompt for **consistent wording**. The dictionary is built once from your local game files and cached; it is never redistributed (translation-memory reference only).
+- **📋 Table-based Review tab**: Instead of stepping through one entry at a time, review **source and translation side by side in a table** and edit many entries quickly. Double-click a Translation cell to fix it inline; edited rows are highlighted in gold.
+- **✏️ Excel-style inline glossary editing**: Edit My Glossary **directly in a table** — no repeated Add dialogs — and type into the empty bottom row to add a new term.
+- **🚀 First-run setup wizard**: On first launch, the API key, Divine.exe, and BG3 folder are **guided and entered in one place** (Divine and game folder are auto-detected).
+- **🗂️ BG3 install folder auto-detection**: Scans Steam libraries to find the BG3 install path (used for official-pack reference and game-language detection).
+- **Logs unified to English**: Progress logs are unified to English so international users read the same output (the app UI stays in all 15 languages).
 
 ### v5.2
 - **Keeps the English original AND shows the translation**: The output PAK now preserves the original English `.xml`. Previously, some mods (especially MCM) had their English source overwritten by the translation, so the Review tab showed Korean as the "English source". Now the English `.xml` is preserved and only the translated `.loca` is mirrored into source-language folders — satisfying review, original preservation, and in-game display all at once.

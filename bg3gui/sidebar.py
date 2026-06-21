@@ -74,7 +74,7 @@ class NavigationSidebar(QWidget):
 
         layout.addStretch()
 
-        ver = QLabel("v5.2")
+        ver = QLabel("v6.0")
         ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ver.setStyleSheet("color:#3a3a3a;font-size:9px;background:transparent;")
         layout.addWidget(ver)

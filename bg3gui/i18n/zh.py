@@ -3,7 +3,7 @@
 # Regenerate: python tools/gen_ui_translations.py zh
 STRINGS = {
     "app.title": "BG3 MOD 翻译器",
-    "app.subtitle": "由 Gemini AI 提供支持 · v5.2",
+    "app.subtitle": "由 Gemini AI 提供支持 · v6.0",
     "menu.settings": "设置",
     "menu.translate": "翻译",
     "menu.review": "审阅",

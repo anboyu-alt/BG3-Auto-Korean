@@ -13,6 +13,8 @@ nuitka_build/
 nuitka_onefile/
 nuitka_*_log.txt
 BG3_ModTranslator/
+BG3_ModTranslator.dist/
+BG3_ModTranslator.build/
 *.zip
 _locacheck/
 

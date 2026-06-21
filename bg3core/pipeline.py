@@ -70,12 +70,12 @@ def translate_unpacked_mod(
         _log(f"    📂 Localization: {loc_path.relative_to(unpacked_path)}")
 
         if skip_if_target_exists and has_target_folder(loc_path, target_profile.folder_name):
-            _log(f"       {target_profile.folder_name} 폴더가 이미 존재함. 스킵")
+            _log(f"       {target_profile.folder_name} folder already exists. Skipping")
             continue
 
         src_dirs = list_source_language_dirs(loc_path, target_profile.folder_name)
         if not src_dirs:
-            _log("       하위 언어 폴더를 찾지 못함. 스킵")
+            _log("       No source language subfolder found. Skipping")
             continue
 
         target_path = loc_path / target_profile.folder_name
@@ -83,7 +83,7 @@ def translate_unpacked_mod(
 
         src_dir = src_dirs[0]
         if len(src_dirs) > 1:
-            _log(f"       언어 폴더 {len(src_dirs)}개. '{src_dir.name}'을 소스로 사용")
+            _log(f"       {len(src_dirs)} language folders. Using '{src_dir.name}' as source")
 
         xml_files = list(src_dir.glob(INPUT_GLOB))
         if not xml_files:
@@ -95,18 +95,18 @@ def translate_unpacked_mod(
             all_files = list(src_dir.iterdir())
             if all_files:
                 names = [f.name for f in all_files[:10]]
-                _log(f"       ⚠️ {src_dir.name} 폴더에 XML 파일 없음. 발견된 파일: {names}")
+                _log(f"       ⚠️ No XML files in {src_dir.name}. Found: {names}")
             else:
-                _log(f"       ⚠️ {src_dir.name} 폴더가 비어있음")
+                _log(f"       ⚠️ {src_dir.name} folder is empty")
             continue
 
-        _log(f"       원본 폴더: {src_dir.name} (XML {len(xml_files)}개)")
+        _log(f"       Source folder: {src_dir.name} (XML: {len(xml_files)})")
 
         total_files = len(xml_files)
         for file_idx, xml_file in enumerate(xml_files, start=1):
             if cancel_event and cancel_event.is_set():
                 raise InterruptedError("user_cancelled")
-            _log(f"       ▶ 파일 처리: {xml_file.name}")
+            _log(f"       ▶ Processing: {xml_file.name}")
             if on_progress:
                 on_progress("translate", file_idx, total_files, xml_file.name)
 
@@ -116,11 +116,11 @@ def translate_unpacked_mod(
                 original = xml_file.read_text(encoding="utf-8", errors="replace")
 
             if not original.strip():
-                _log("         빈 파일. 스킵")
+                _log("         Empty file. Skipping")
                 continue
 
             if is_already_translated(original, target_profile):
-                _log("         이미 번역된 파일. 스킵")
+                _log("         Already translated. Skipping")
                 continue
 
             translated = process_xml_file(
@@ -133,7 +133,7 @@ def translate_unpacked_mod(
 
             out_file = target_path / xml_file.name
             out_file.write_text(translated, encoding="utf-8")
-            _log(f"         ✅ 저장 완료: {out_file.name}")
+            _log(f"         ✅ Saved: {out_file.name}")
             any_translated = True
 
     return any_translated
@@ -164,7 +164,7 @@ def process_pak_file(
     output_pak = pak_path.parent / f"{pak_name}_{target_profile.folder_name}.pak"
 
     if output_pak.exists():
-        _log(f"  ⏩ 이미 번역된 pak 존재: {output_pak.name}. 스킵")
+        _log(f"  ⏩ Translated pak already exists: {output_pak.name}. Skipping")
         return False
 
     base_dir = work_dir if work_dir else pak_path.parent
@@ -172,7 +172,7 @@ def process_pak_file(
     if temp_dir.exists():
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-    _log(f"  📤 언팩 중: {pak_path.name}")
+    _log(f"  📤 Unpacking: {pak_path.name}")
     if on_progress:
         on_progress("unpack", 0, 1, pak_path.name, pak_name)
     if not divine_extract(divine_path, pak_path, temp_dir):
@@ -182,13 +182,13 @@ def process_pak_file(
 
     loca_count = convert_loca_to_xml(divine_path, temp_dir, logger=logger)
     if loca_count > 0:
-        _log(f"  🔄 .loca → XML 변환: {loca_count}개 파일")
+        _log(f"  🔄 .loca → XML: {loca_count} files")
 
     if cancel_event and cancel_event.is_set():
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise InterruptedError("user_cancelled")
 
-    _log("  🔄 번역 시작...")
+    _log("  🔄 Translating...")
     translated = translate_unpacked_mod(
         temp_dir, api_key, log_file,
         skip_if_target_exists=skip_if_target_exists,
@@ -215,21 +215,21 @@ def process_pak_file(
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise
         except Exception as e:
-            _log(f"  ⚠️ MCM 처리 중 오류: {e} — Localization 번역만 적용해 진행")
+            _log(f"  ⚠️ MCM processing error: {e} — continuing with Localization only")
             mcm_stats = None
 
         if mcm_stats:
             _log(
-                "  🧩 MCM 처리: "
-                f"Loca {mcm_stats.get('loca_translated', 0)}건, "
-                f"미러 {mcm_stats.get('loca_mirrored', 0)}건, "
-                f"블루프린트 {mcm_stats['blueprint_translated']}건, "
-                f"Lua 자동 {mcm_stats['lua_auto']}건, "
-                f"검수 {mcm_stats['lua_review']}건, "
-                f"옵션 {mcm_stats['lua_options']}건"
+                "  🧩 MCM: "
+                f"loca {mcm_stats.get('loca_translated', 0)}, "
+                f"mirror {mcm_stats.get('loca_mirrored', 0)}, "
+                f"blueprint {mcm_stats['blueprint_translated']}, "
+                f"Lua auto {mcm_stats['lua_auto']}, "
+                f"review {mcm_stats['lua_review']}, "
+                f"options {mcm_stats['lua_options']}"
             )
             if mcm_stats.get("report"):
-                _log(f"     검수 리포트: {mcm_stats['report']}")
+                _log(f"     Review report: {mcm_stats['report']}")
             mcm_changed = (
                 mcm_stats.get("loca_translated", 0) > 0
                 or mcm_stats.get("loca_mirrored", 0) > 0
@@ -238,7 +238,7 @@ def process_pak_file(
             )
 
     if not translated and not mcm_changed:
-        _log("  ⚠️ 번역할 Localization도 MCM 자산도 없음")
+        _log("  ⚠️ No Localization or MCM assets to translate")
         shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
@@ -246,7 +246,7 @@ def process_pak_file(
     # 번역된 xml에서 각 언어 .loca를 생성해 포함시킨다(없는 것만 — 멱등).
     generated = ensure_loca(divine_path, temp_dir, logger=logger)
     if generated > 0:
-        _log(f"  🧩 .loca 생성: {generated}개")
+        _log(f"  🧩 Generated .loca: {generated}")
 
     # 일부 모드는 게임 언어와 무관하게 영어 Localization에서 텍스트를 읽는다. 영어
     # .xml 원문은 보존하면서, 번역된 .loca를 영어 등 소스 언어 폴더의 .loca로 복사해
@@ -255,11 +255,11 @@ def process_pak_file(
         temp_dir, target_folder=target_profile.folder_name, logger=logger
     )
     if mirrored_loca > 0:
-        _log(f"  🧩 .loca 미러: {mirrored_loca}개 (원문 .xml 보존)")
+        _log(f"  🧩 Mirrored .loca: {mirrored_loca} (English .xml preserved)")
 
     save_translation_cache(cache_file)
 
-    _log(f"  📥 리팩 중: → {output_pak.name}")
+    _log(f"  📥 Repacking → {output_pak.name}")
     if on_progress:
         on_progress("repack", 0, 1, output_pak.name, pak_name)
     if not divine_repack(divine_path, temp_dir, output_pak):
@@ -267,7 +267,7 @@ def process_pak_file(
         return False
 
     shutil.rmtree(temp_dir, ignore_errors=True)
-    _log(f"  ✅ {target_profile.display_name} 번역 완료: {output_pak.name}")
+    _log(f"  ✅ {target_profile.display_name} done: {output_pak.name}")
     if on_progress:
         on_progress("done", 1, 1, output_pak.name, pak_name)
     return True
@@ -302,7 +302,7 @@ def run_batch(
     target = Path(target_pak)
 
     if target.is_file() and target.suffix.lower() == ".pak":
-        _log(f"\n[단일 pak 모드] {target.name}")
+        _log(f"\n[Single pak] {target.name}")
         _log("=" * 50)
         process_pak_file(
             target, divine_path, api_key, log_file, cache_file,
@@ -321,11 +321,11 @@ def run_batch(
         pak_files = [p for p in pak_files if not p.stem.endswith(f"_{target_profile.folder_name}")]
 
         if not pak_files:
-            _log(f"❌ 폴더에 .pak 파일이 없습니다: {target}")
+            _log(f"❌ No .pak files in folder: {target}")
             return
 
-        _log(f"\n[다중 pak 모드] {target}")
-        _log(f"총 {len(pak_files)}개의 .pak 파일을 처리합니다.")
+        _log(f"\n[Batch pak] {target}")
+        _log(f"Processing {len(pak_files)} .pak files.")
         _log("=" * 50)
 
         stats = {"done": 0, "skipped": 0, "failed": 0}
@@ -353,18 +353,18 @@ def run_batch(
                 stats["failed"] += 1
 
         _log("\n" + "=" * 50)
-        _log("[결과 요약]")
-        _log(f"  ✅ 번역 완료: {stats['done']}개")
-        _log(f"  ⏩ 스킵:     {stats['skipped']}개")
-        _log(f"  ❌ 실패:     {stats['failed']}개")
+        _log("[Summary]")
+        _log(f"  ✅ Done: {stats['done']}")
+        _log(f"  ⏩ Skipped: {stats['skipped']}")
+        _log(f"  ❌ Failed: {stats['failed']}")
 
     else:
-        _log(f"❌ 지정한 경로가 .pak 파일도 폴더도 아닙니다: {target}")
+        _log(f"❌ Path is neither a .pak file nor a folder: {target}")
         return
 
     save_translation_cache(cache_file)
     cache = load_translation_cache(cache_file)
-    _log(f"\n💾 번역 캐시: {len(cache)}개 항목 저장됨")
+    _log(f"\n💾 Translation cache: {len(cache)} entries saved")
 
     if work_dir:
         temp_root = work_dir / "_pak_temp"

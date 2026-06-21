@@ -66,7 +66,7 @@ def load_translation_cache(cache_file: str) -> dict:
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
                 _translation_cache = json.load(f)
-                print(f"  [캐시] {len(_translation_cache)}개 항목 로드됨")
+                print(f"  [cache] {len(_translation_cache)} entries loaded")
                 return _translation_cache
         except (json.JSONDecodeError, IOError):
             pass
@@ -340,9 +340,9 @@ def call_gemini(lines_text: str, filename: str,
 
                 if e.code == 429:
                     # API 사용량 한도. 명확히 표시(이전엔 상태 미설정으로 "unknown"이 떴음).
-                    last_status = f"rate_limited (429) — API 사용량 한도 초과 ({model_name})"
+                    last_status = f"rate_limited (429) — API quota exceeded ({model_name})"
                     wait = 10 + attempt * 15
-                    print(f"        [!] 429 제한. {wait}초 대기 ({model_name})")
+                    print(f"        [!] 429 rate limit. waiting {wait}s ({model_name})")
                     for _ in range(wait):
                         if cancel_event and cancel_event.is_set():
                             return None, "user_cancelled"
@@ -424,7 +424,7 @@ def process_xml_file(
     unique_count = len(unique_texts)
     empty_count = sum(1 for x in block_to_unique if x is None)
     dedup_saved = total_blocks - unique_count - empty_count
-    _log(f"    -> 총 블록: {total_blocks} (고유: {unique_count}, 중복 제거: {dedup_saved})")
+    _log(f"    -> Total blocks: {total_blocks} (unique: {unique_count}, deduped: {dedup_saved})")
 
     if unique_count == 0:
         return original_content
@@ -449,8 +449,8 @@ def process_xml_file(
             need_api.append((text, idx))
 
     local_total = stats_cache + stats_skip + stats_glossary
-    _log(f"    -> 로컬: 캐시 {stats_cache} + 스킵 {stats_skip} + 글로서리 {stats_glossary} = {local_total}개")
-    _log(f"    -> API 필요: {len(need_api)}개")
+    _log(f"    -> Local: cache {stats_cache} + skip {stats_skip} + glossary {stats_glossary} = {local_total}")
+    _log(f"    -> Need API: {len(need_api)}")
 
     if need_api:
         protected_texts = []
@@ -464,7 +464,7 @@ def process_xml_file(
                 break
 
             chunks = chunk_by_tokens(remaining, max_tokens)
-            _log(f"    -> 청크 수: {len(chunks)} (토큰한도 {max_tokens}, 미번역 {len(remaining)}개)")
+            _log(f"    -> Chunks: {len(chunks)} (token limit {max_tokens}, untranslated {len(remaining)})")
 
             failed_hard = False
             for cidx, chunk in enumerate(chunks, start=1):
@@ -476,7 +476,7 @@ def process_xml_file(
                         raise InterruptedError("user_cancelled")
 
                 ctokens = sum(estimate_tokens(t) for _, t, _, _ in chunk)
-                _log(f"      ▶ 청크 ({cidx}/{len(chunks)}) - {len(chunk)}개 (~{ctokens}토큰)")
+                _log(f"      ▶ Chunk ({cidx}/{len(chunks)}) - {len(chunk)} (~{ctokens} tokens)")
 
                 lines = []
                 for idx, protected, _, _ in chunk:
@@ -491,15 +491,15 @@ def process_xml_file(
                 if raw is None:
                     if status == "user_cancelled":
                         raise InterruptedError("user_cancelled")
-                    _log(f"        ❌ 실패: {status}")
+                    _log(f"        ❌ Failed: {status}")
                     with open(log_file, "a", encoding="utf-8") as f:
-                        f.write(f"{filename} | 청크 {cidx}/{len(chunks)} | {status}\n")
+                        f.write(f"{filename} | chunk {cidx}/{len(chunks)} | {status}\n")
                     failed_hard = True
                     continue
 
                 parsed = parse_response(raw, len(chunk))
                 if parsed is None:
-                    _log("        ⚠️ 파싱 실패. 원본 유지")
+                    _log("        ⚠️ Parse failed. Keeping original")
                     failed_hard = True
                     continue
 
@@ -515,12 +515,12 @@ def process_xml_file(
                         translated_map[idx] = t
                         cache_put(orig, t, target_profile)
                         ok += 1
-                _log(f"        -> 성공: {ok}/{len(chunk)}개 ({status})")
+                _log(f"        -> OK: {ok}/{len(chunk)} ({status})")
                 time.sleep(1.5)
 
             if not failed_hard:
                 break
-            _log("    -> 다운시프트 진행")
+            _log("    -> Downshifting")
 
     final_blocks = []
     for i, (full_block, open_tag, inner, close_tag) in enumerate(all_blocks):
@@ -533,7 +533,7 @@ def process_xml_file(
     header = original_content[:matches[0].start()]
     footer = original_content[matches[-1].end():]
     done = sum(1 for uid in block_to_unique if uid is not None and uid in translated_map)
-    _log(f"    -> 최종: {done}/{total_blocks} 블록 번역 완료")
+    _log(f"    -> Final: {done}/{total_blocks} blocks translated")
 
     return header + "\n".join(final_blocks) + footer
 
@@ -607,7 +607,7 @@ def translate_text_list(
             continue
         need_api.append((text, idx))
 
-    _log(f"    -> [{label}] 고유 {len(unique_texts)} | 캐시 {stats_cache} 글로서리 {stats_glossary} 스킵 {stats_skip} | API {len(need_api)}")
+    _log(f"    -> [{label}] unique {len(unique_texts)} | cache {stats_cache} glossary {stats_glossary} skip {stats_skip} | API {len(need_api)}")
 
     if need_api:
         protected_texts = []
@@ -645,7 +645,7 @@ def translate_text_list(
                     if status == "user_cancelled":
                         raise InterruptedError("user_cancelled")
                     with open(log_file, "a", encoding="utf-8") as f:
-                        f.write(f"{label} | 청크 {cidx}/{len(chunks)} | {status}\n")
+                        f.write(f"{label} | chunk {cidx}/{len(chunks)} | {status}\n")
                     failed_hard = True
                     continue
 

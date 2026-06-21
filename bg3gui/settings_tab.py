@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer
 
 from bg3core.config import UserConfig, save_config, auto_detect_bg3
+from bg3core.language import LANGUAGE_PROFILES, UI_LANG_CODE
 from . import theme
 from .i18n import t, t_for
 from .widgets.path_picker import PathPicker
@@ -17,7 +18,10 @@ from .widgets.no_scroll_combo import NoScrollComboBox
 from .widgets.description_panel import DescriptionPanel, vertical_divider
 
 # 번역 대상 언어 선택은 번역 탭에만 둔다(설정 탭에서는 제거).
-_APP_LANG_OPTIONS = [("한국어", "ko"), ("English", "en")]
+# 앱 UI 언어 = 15개 언어. 라벨은 각 언어의 표시명(예: "한국어 (Korean)").
+_APP_LANG_OPTIONS = [
+    (LANGUAGE_PROFILES[fn].display_name, code) for fn, code in UI_LANG_CODE.items()
+]
 _APP_LANG_DISPLAY = {code: label for label, code in _APP_LANG_OPTIONS}
 _APP_LANG_CODE = {label: code for label, code in _APP_LANG_OPTIONS}
 

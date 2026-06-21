@@ -76,6 +76,21 @@ def prompt_language_name(profile: LanguageProfile) -> str:
     return _PROMPT_NAMES.get(profile.folder_name, profile.folder_name)
 
 
+# 앱 UI 언어 코드(= i18n 모듈 파일명). folder_name → ui 코드. (v6.0: 15개 언어 UI)
+UI_LANG_CODE: Dict[str, str] = {
+    "Korean": "ko", "English": "en", "French": "fr", "German": "de",
+    "Spanish": "es", "Polish": "pl", "Russian": "ru", "Chinese": "zh",
+    "Turkish": "tr", "BrazilianPortuguese": "pt_br", "Italian": "it",
+    "LatinSpanish": "es_la", "ChineseTraditional": "zh_tw",
+    "Ukrainian": "uk", "Japanese": "ja",
+}
+
+
+def ui_language_code(folder_name: str) -> str:
+    """대상 언어 folder_name에 대응하는 앱 UI 언어 코드. 없으면 'en'."""
+    return UI_LANG_CODE.get(folder_name, "en")
+
+
 def script_ratio(text: str, profile: LanguageProfile) -> float:
     """text 안에서 대상 언어 스크립트 문자가 차지하는 비율(0.0~1.0).
 

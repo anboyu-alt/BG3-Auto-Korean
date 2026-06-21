@@ -74,9 +74,9 @@ def _first_run_defaults() -> UserConfig:
         cfg.bg3_install_path = bg3
         lang = detect_game_language(bg3)
         if lang:
+            from .language import ui_language_code
             cfg.target_language = lang
-            # 앱 UI 언어는 현재 ko/en (Phase 3에서 15개로 확장). 그때 lang→UI코드 매핑 확장.
-            cfg.app_language = "ko" if lang == "Korean" else "en"
+            cfg.app_language = ui_language_code(lang)  # 없는 언어 UI는 로더가 영어로 폴백
     return cfg
 
 

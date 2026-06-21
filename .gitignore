@@ -8,6 +8,14 @@ build/
 dist/
 *.spec.bak
 
+# Nuitka / 빌드 산출물 (커밋 금지)
+nuitka_build/
+nuitka_onefile/
+nuitka_*_log.txt
+BG3_ModTranslator/
+*.zip
+_locacheck/
+
 # 번역 캐시 (지우면 재번역 비용 발생 — 절대 삭제 금지!)
 translation_cache.json
 

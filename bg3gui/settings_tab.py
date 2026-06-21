@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 
-from bg3core.config import UserConfig, save_config
+from bg3core.config import UserConfig, save_config, auto_detect_bg3
 from . import theme
 from .i18n import t, t_for
 from .widgets.path_picker import PathPicker
@@ -74,6 +74,11 @@ class SettingsTab(QWidget):
         )
         layout.addWidget(self._divine_picker)
 
+        # ── BG3 설치 폴더 ──
+        layout.addWidget(_row_label(t("settings.bg3_path")))
+        self._bg3_picker = PathPicker(mode="dir")
+        layout.addWidget(self._bg3_picker)
+
         # AI 모델 선택은 번역 탭에만 둔다(설정 탭에서는 제거).
 
         # ── UI Scale ──
@@ -129,6 +134,7 @@ class SettingsTab(QWidget):
         items = [
             (t("settings.api_key"), t("desc.settings.api_key")),
             (t("settings.divine_path"), t("desc.settings.divine")),
+            (t("settings.bg3_path"), t("desc.settings.bg3")),
             (t("settings.ui_scale"), t("desc.settings.ui_scale")),
             (t("settings.app_language"), t("desc.settings.app_lang")),
             (t("settings.cache_path"), t("desc.settings.cache")),
@@ -149,6 +155,8 @@ class SettingsTab(QWidget):
         self._cfg = cfg
         self._api_edit.setText(cfg.api_key)
         self._divine_picker.set(cfg.divine_exe_path)
+        # 비어 있으면 자동 감지값으로 채워 보여준다(저장 전엔 미저장).
+        self._bg3_picker.set(cfg.bg3_install_path or (auto_detect_bg3() or ""))
         self._scale_combo.setCurrentText(cfg.ui_scale)
         self._app_lang_combo.setCurrentText(
             _APP_LANG_DISPLAY.get(cfg.app_language, "한국어")
@@ -161,6 +169,7 @@ class SettingsTab(QWidget):
         cfg = UserConfig()
         cfg.api_key = self._api_edit.text().strip()
         cfg.divine_exe_path = self._divine_picker.get()
+        cfg.bg3_install_path = self._bg3_picker.get()
         cfg.ui_scale = self._scale_combo.currentText()
         cfg.app_language = _APP_LANG_CODE.get(
             self._app_lang_combo.currentText(), "ko"

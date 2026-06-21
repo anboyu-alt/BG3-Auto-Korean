@@ -7,10 +7,11 @@ from typing import List, Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QTextEdit, QMessageBox, QSplitter,
+    QListWidget, QMessageBox, QSplitter,
+    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
 )
 from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QShortcut, QColor
 
 from bg3core.config import UserConfig
 from bg3core.divine import divine_extract, divine_repack, ensure_loca
@@ -43,7 +44,6 @@ class ReviewerTab(QWidget):
         self._review_files: List[ReviewFile] = []
         self._current_file: Optional[ReviewFile] = None
         self._current_entries: List[Entry] = []
-        self._current_idx: int = 0
         self._show_modified_only = False
         self._temp_dir: Optional[Path] = None
         self._pak_path: Optional[Path] = None
@@ -99,46 +99,38 @@ class ReviewerTab(QWidget):
         ep_layout.setContentsMargins(0, 0, 0, 0)
         ep_layout.setSpacing(6)
 
-        self._nav_label = QLabel(t("review.none"))
-        self._nav_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self._nav_label.setStyleSheet(f"color:{theme.TEXT_MUTED};background:transparent;")
-        ep_layout.addWidget(self._nav_label)
-
-        ep_layout.addWidget(QLabel(t("review.source_lang")))
-        self._en_box = QTextEdit()
-        self._en_box.setReadOnly(True)
-        self._en_box.setFixedHeight(100)
-        ep_layout.addWidget(self._en_box)
-
-        ep_layout.addWidget(QLabel(t("review.target_lang")))
-        self._kr_box = QTextEdit()
-        self._kr_box.setFixedHeight(100)
-        ep_layout.addWidget(self._kr_box)
-
-        nav_row = QHBoxLayout()
-        self._btn_prev = QPushButton(t("review.prev"))
-        self._btn_prev.setFixedWidth(80)
-        self._btn_prev.clicked.connect(self._prev)
-        nav_row.addWidget(self._btn_prev)
-        self._btn_next = QPushButton(t("review.next"))
-        self._btn_next.setFixedWidth(80)
-        self._btn_next.clicked.connect(self._next)
-        nav_row.addWidget(self._btn_next)
-        self._btn_save = QPushButton(t("review.save"))
-        self._btn_save.clicked.connect(self._save_all)
-        nav_row.addWidget(self._btn_save)
+        toolbar = QHBoxLayout()
+        self._count_label = QLabel(t("review.none"))
+        self._count_label.setStyleSheet(f"color:{theme.TEXT_MUTED};background:transparent;")
+        toolbar.addWidget(self._count_label)
+        toolbar.addStretch()
         self._btn_modified = QPushButton(t("review.modified_only"))
         self._btn_modified.setCheckable(True)
         self._btn_modified.toggled.connect(self._toggle_modified)
-        nav_row.addWidget(self._btn_modified)
-        nav_row.addStretch()
-        ep_layout.addLayout(nav_row)
-        ep_layout.addStretch()
+        toolbar.addWidget(self._btn_modified)
+        self._btn_save = QPushButton(t("review.save"))
+        self._btn_save.clicked.connect(self._save_all)
+        toolbar.addWidget(self._btn_save)
+        ep_layout.addLayout(toolbar)
+
+        # 검수 테이블: [원문(읽기전용) | 번역(편집)]. 행 = 선택 파일의 전체 항목.
+        self._table = QTableWidget(0, 2)
+        self._table.setHorizontalHeaderLabels([t("review.source_lang"), t("review.target_lang")])
+        self._table.verticalHeader().setVisible(False)
+        self._table.setWordWrap(True)
+        self._table.setAlternatingRowColors(True)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        hdr = self._table.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._table.setColumnWidth(0, 320)
+        self._table.cellChanged.connect(self._on_cell_changed)
+        ep_layout.addWidget(self._table, stretch=1)
 
         splitter.addWidget(edit_panel)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([140, 300])
+        splitter.setSizes([140, 600])
         layout.addWidget(splitter, stretch=1)
 
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save_all)
@@ -201,44 +193,44 @@ class ReviewerTab(QWidget):
             e for e in rf.entries
             if not self._show_modified_only or e.modified
         ]
-        self._current_idx = 0
-        self._show_entry()
+        self._populate_table()
 
-    def _show_entry(self) -> None:
-        if not self._current_entries:
-            self._nav_label.setText(t("review.none"))
-            self._en_box.clear()
-            self._kr_box.clear()
-            return
-        entry = self._current_entries[self._current_idx]
-        total = len(self._current_entries)
-        self._nav_label.setText(t("review.nav", idx=self._current_idx + 1, total=total))
-        self._en_box.setPlainText(entry.english)
-        self._kr_box.setPlainText(entry.display_target)
+    def _populate_table(self) -> None:
+        # 프로그램적 채우기 중에는 cellChanged가 가짜 수정으로 잡히지 않도록 차단.
+        self._table.blockSignals(True)
+        self._table.setRowCount(len(self._current_entries))
+        for row, entry in enumerate(self._current_entries):
+            en_item = QTableWidgetItem(entry.english)
+            en_item.setFlags(en_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            tr_item = QTableWidgetItem(entry.display_target)
+            if entry.modified:
+                tr_item.setForeground(QColor(theme.GOLD))
+            self._table.setItem(row, 0, en_item)
+            self._table.setItem(row, 1, tr_item)
+        self._table.blockSignals(False)
+        self._update_count()
 
-    def _commit_current(self) -> None:
+    def _update_count(self) -> None:
         if not self._current_entries:
+            self._count_label.setText(t("review.none"))
             return
-        entry = self._current_entries[self._current_idx]
-        new_text = self._kr_box.toPlainText()
+        modified = sum(1 for e in self._current_entries if e.modified)
+        self._count_label.setText(
+            t("review.count", total=len(self._current_entries), modified=modified)
+        )
+
+    def _on_cell_changed(self, row: int, col: int) -> None:
+        if col != 1 or not (0 <= row < len(self._current_entries)):
+            return
+        entry = self._current_entries[row]
+        new_text = self._table.item(row, col).text()
         if new_text != entry.target_text:
             entry.modified = True
             entry.new_target = new_text
-
-    def _next(self) -> None:
-        self._commit_current()
-        if self._current_entries and self._current_idx < len(self._current_entries) - 1:
-            self._current_idx += 1
-        self._show_entry()
-
-    def _prev(self) -> None:
-        self._commit_current()
-        if self._current_idx > 0:
-            self._current_idx -= 1
-        self._show_entry()
+            self._table.item(row, col).setForeground(QColor(theme.GOLD))
+            self._update_count()
 
     def _save_all(self) -> None:
-        self._commit_current()
         if not self._review_files or not self._pak_path or not self._temp_dir:
             return
         modified = [rf for rf in self._review_files if any(e.modified for e in rf.entries)]

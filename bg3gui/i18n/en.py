@@ -104,4 +104,13 @@ STRINGS = {
     "common.info": "Info",
     "common.yes": "Yes",
     "common.no": "No",
+    "wizard.title": "BG3 Mod Translator — First-time Setup",
+    "wizard.heading": "Welcome! Let's get set up.",
+    "wizard.intro": "Just fill in the items below once. Divine.exe and the game folder are usually auto-detected, so you can often just press Start.",
+    "wizard.step_api": "1. Gemini API Key (required)",
+    "wizard.api_hint": "Get a free key at aistudio.google.com. You can also enter it later under Settings.",
+    "wizard.step_divine": "2. Divine.exe (LSLib ExportTool)",
+    "wizard.step_bg3": "3. Baldur's Gate 3 install folder (optional)",
+    "wizard.start": "Start",
+    "wizard.later": "Set up later",
 }

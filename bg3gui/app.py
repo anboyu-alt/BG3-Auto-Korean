@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from bg3core.config import UserConfig, load_config, save_config
+from bg3core.config import UserConfig, load_config, save_config, get_config_path
 from bg3core.language import get_profile
 from . import theme
 from .i18n import load as i18n_load, t
@@ -21,6 +21,7 @@ from .glossary_tab import GlossaryTab
 class App(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        config_existed = get_config_path().exists()
         cfg = load_config()
         i18n_load(cfg.app_language)
 
@@ -93,6 +94,21 @@ class App(QMainWindow):
         self._translate_tab.set_config(cfg)
         self._reviewer_tab.set_config(cfg)
         self._update_status_right(cfg)
+
+        self._maybe_first_run(config_existed)
+
+    def _maybe_first_run(self, config_existed: bool) -> None:
+        """설정 파일이 없던 첫 실행이면 안내 위저드를 띄운다."""
+        if config_existed:
+            return
+        from .first_run_wizard import FirstRunWizard
+        wiz = FirstRunWizard(self._cfg, self)
+        if wiz.exec():
+            cfg = wiz.result_config()
+            save_config(cfg)
+            self._cfg = cfg
+            self._settings_tab.load_config(cfg)
+            self._on_config_saved(cfg)
 
     def _on_config_saved(self, cfg: UserConfig) -> None:
         self._cfg = cfg

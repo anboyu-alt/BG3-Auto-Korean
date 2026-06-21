@@ -132,25 +132,25 @@ def process_blueprints(
         try:
             raw = bp_path.read_text(encoding="utf-8")
         except Exception as e:
-            _log(f"    [blueprint] 읽기 실패 {bp_path}: {e}")
+            _log(f"    [blueprint] read failed {bp_path}: {e}")
             continue
 
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as e:
-            _log(f"    [blueprint] JSON 파싱 실패 {bp_path}: {e}")
+            _log(f"    [blueprint] JSON parse failed {bp_path}: {e}")
             continue
 
         plain_texts: List[str] = []
         _collect_strings_recursive(data, plain_texts)
 
         if not plain_texts:
-            _log(f"    [blueprint] {bp_path.name}: 직접 치환 대상 없음 (Handles로 처리됨)")
+            _log(f"    [blueprint] {bp_path.name}: no direct substitutions (handled via Handles)")
             stats["files"].append({"path": str(bp_path), "translated": 0, "candidates": 0})
             continue
 
         rel = bp_path.relative_to(unpacked_root) if bp_path.is_relative_to(unpacked_root) else bp_path
-        _log(f"    [blueprint] {rel}: 평문 후보 {len(plain_texts)}개")
+        _log(f"    [blueprint] {rel}: {len(plain_texts)} plain-text candidates")
 
         translation_map = translate_fn(plain_texts, f"MCM:{bp_path.parent.name}")
         if not translation_map:
@@ -163,6 +163,6 @@ def process_blueprints(
         bp_path.write_text(new_text + ("\n" if raw.endswith("\n") else ""), encoding="utf-8")
         stats["translated"] += applied
         stats["files"].append({"path": str(bp_path), "translated": applied, "candidates": len(plain_texts)})
-        _log(f"    [blueprint] {rel}: {applied}개 치환 완료")
+        _log(f"    [blueprint] {rel}: {applied} substitutions applied")
 
     return stats

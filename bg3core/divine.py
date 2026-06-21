@@ -18,9 +18,9 @@ _TIMEOUT_LONG = 300    # extract / repack
 
 def check_divine_exe(divine_path: str) -> bool:
     if not os.path.isfile(divine_path):
-        print(f"❌ Divine.exe를 찾을 수 없습니다: {divine_path}")
-        print("   LSLib ExportTool에 포함된 Divine.exe 경로를 확인하세요.")
-        print("   다운로드: https://github.com/Norbyte/lslib/releases")
+        print(f"❌ Divine.exe not found: {divine_path}")
+        print("   Check the Divine.exe path (from LSLib ExportTool).")
+        print("   Download: https://github.com/Norbyte/lslib/releases")
         return False
     return True
 
@@ -38,16 +38,16 @@ def divine_extract(divine_path: str, pak_path: Path, dest_folder: Path) -> bool:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_LONG)
         if result.returncode != 0:
-            print(f"    ❌ divine 언팩 실패 (exit code {result.returncode})")
+            print(f"    ❌ divine unpack failed (exit code {result.returncode})")
             if result.stderr:
                 print(f"       stderr: {result.stderr[:300]}")
             return False
         return True
     except subprocess.TimeoutExpired:
-        print(f"    ❌ divine 언팩 타임아웃 ({_TIMEOUT_LONG // 60}분 초과)")
+        print(f"    ❌ divine unpack timeout (> {_TIMEOUT_LONG // 60} min)")
         return False
     except Exception as e:
-        print(f"    ❌ divine 실행 오류: {e}")
+        print(f"    ❌ divine error: {e}")
         return False
 
 
@@ -84,9 +84,9 @@ def convert_loca_to_xml(
             else:
                 err = (result.stderr or result.stdout or "").strip()
                 if err:
-                    _warn(f"    ⚠️ .loca → XML 변환 실패: {loca_file.name} — {err.splitlines()[0][:200]}")
+                    _warn(f"    ⚠️ .loca → XML conversion failed: {loca_file.name} — {err.splitlines()[0][:200]}")
         except Exception as e:
-            _warn(f"    ⚠️ .loca → XML 변환 예외: {loca_file.name} — {e}")
+            _warn(f"    ⚠️ .loca → XML conversion error: {loca_file.name} — {e}")
     return converted
 
 
@@ -103,16 +103,16 @@ def divine_repack(divine_path: str, source_folder: Path, output_pak: Path) -> bo
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=_TIMEOUT_LONG)
         if result.returncode != 0:
-            print(f"    ❌ divine 리팩 실패 (exit code {result.returncode})")
+            print(f"    ❌ divine repack failed (exit code {result.returncode})")
             if result.stderr:
                 print(f"       stderr: {result.stderr[:300]}")
             return False
         return True
     except subprocess.TimeoutExpired:
-        print(f"    ❌ divine 리팩 타임아웃 ({_TIMEOUT_LONG // 60}분 초과)")
+        print(f"    ❌ divine repack timeout (> {_TIMEOUT_LONG // 60} min)")
         return False
     except Exception as e:
-        print(f"    ❌ divine 실행 오류: {e}")
+        print(f"    ❌ divine error: {e}")
         return False
 
 
@@ -207,7 +207,7 @@ def ensure_loca(
             else:
                 err = (result.stderr or result.stdout or "").strip()
                 if err:
-                    _warn(f"    ⚠️ .loca 생성 실패: {src_xml.name} — {err.splitlines()[0][:200]}")
+                    _warn(f"    ⚠️ .loca generation failed: {src_xml.name} — {err.splitlines()[0][:200]}")
         except Exception as e:
-            _warn(f"    ⚠️ .loca 생성 예외: {src_xml.name} — {e}")
+            _warn(f"    ⚠️ .loca generation error: {src_xml.name} — {e}")
     return generated

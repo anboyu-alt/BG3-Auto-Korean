@@ -179,7 +179,7 @@ def build_patch_mod_dir(
 
     original_meta = extract_original_meta(unpacked_root)
     if not original_meta or not original_meta.get("uuid") or not original_meta.get("folder"):
-        _log("    [patch] meta.lsx에서 원본 모드 정보를 추출하지 못함. 패치 PAK 산출 스킵")
+        _log("    [patch] Could not extract source mod info from meta.lsx. Skipping patch PAK")
         return None
 
     patch_folder_name = f"{original_meta['folder']}_{target_profile.lang_code}"
@@ -197,7 +197,7 @@ def build_patch_mod_dir(
             )
 
     if not target_xmls:
-        _log(f"    [patch] {target_profile.folder_name}/*.xml이 없어 패치 PAK 산출 스킵")
+        _log(f"    [patch] No {target_profile.folder_name}/*.xml. Skipping patch PAK")
         return None
 
     # 패치 모드 디렉토리 빌드
@@ -231,7 +231,7 @@ def build_patch_mod_dir(
             dst.write_text(src_xml.read_text(encoding="utf-8"), encoding="utf-8")
             copied += 1
 
-    _log(f"    [patch] 패치 모드 빌드: {patch_folder_name}, 번역 XML {len(target_xmls)}개 × 언어폴더 {len(source_lang_names)}개 = {copied}건")
+    _log(f"    [patch] Building patch mod: {patch_folder_name}, {len(target_xmls)} XML x {len(source_lang_names)} lang folders = {copied}")
     return {
         "patch_dir": output_dir,
         "patch_folder": patch_folder_name,

@@ -150,7 +150,7 @@ def process_lua_files(
         try:
             raw = lua_path.read_text(encoding="utf-8")
         except Exception as e:
-            _log(f"    [lua] 읽기 실패 {lua_path}: {e}")
+            _log(f"    [lua] read failed {lua_path}: {e}")
             continue
 
         auto, review, options = scan_lua(raw)
@@ -172,7 +172,7 @@ def process_lua_files(
         return {"files": len(lua_files), "auto": 0, "review": 0, "options": 0, "report": None}
 
     unique_texts = sorted({e["text"] for e in all_auto})
-    _log(f"    [lua] 파일 {len(per_file)}개, 자동 후보 {len(unique_texts)}개 고유")
+    _log(f"    [lua] {len(per_file)} files, {len(unique_texts)} unique auto candidates")
 
     translation_map: Dict[str, str] = {}
     if unique_texts:

@@ -110,7 +110,7 @@ def mirror_loca_to_source_languages(
                 if src is not None:
                     shutil.copyfile(src, dst)
                     mirrored += 1
-                    _log(f"    [loca-mirror] {lang_dir.name}/{dst.name} ← {target_folder}/{src.name} (.loca만, .xml 보존)")
+                    _log(f"    [loca-mirror] {lang_dir.name}/{dst.name} ← {target_folder}/{src.name} (.loca only, .xml preserved)")
     return mirrored
 
 
@@ -147,7 +147,7 @@ def process_flat_localizations(
         if not original.strip():
             continue
         if _looks_translated(original, target_profile):
-            _log(f"    [loca] {xml_file.name}: 이미 번역됨, 스킵")
+            _log(f"    [loca] {xml_file.name}: already translated, skipping")
             continue
 
         translated = process_xml_file(
@@ -160,6 +160,6 @@ def process_flat_localizations(
         if translated != original:
             xml_file.write_text(translated, encoding="utf-8")
             translated_files += 1
-            _log(f"    [loca] {xml_file.name}: in-place 번역 완료")
+            _log(f"    [loca] {xml_file.name}: translated in-place")
 
     return {"files": len(xmls), "translated": translated_files}

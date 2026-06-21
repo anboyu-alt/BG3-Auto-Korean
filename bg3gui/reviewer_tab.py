@@ -56,12 +56,13 @@ class ReviewerTab(QWidget):
         outer_split.setChildrenCollapsible(False)
         left = QWidget()
         outer_split.addWidget(left)
-        panel = self._build_description_panel()
-        panel.setMinimumWidth(280)
-        outer_split.addWidget(panel)
-        outer_split.setStretchFactor(0, 1)
+        # 검수 탭은 표 폭이 중요 → 도움말 패널은 좁게 두고, 접기 버튼으로 숨길 수 있다.
+        self._desc_panel = self._build_description_panel()
+        self._desc_panel.setMinimumWidth(200)
+        outer_split.addWidget(self._desc_panel)
+        outer_split.setStretchFactor(0, 4)
         outer_split.setStretchFactor(1, 1)
-        outer_split.setSizes([500, 500])
+        outer_split.setSizes([800, 220])
         root.addWidget(outer_split)
 
         layout = QVBoxLayout(left)
@@ -111,6 +112,11 @@ class ReviewerTab(QWidget):
         self._btn_save = QPushButton(t("review.save"))
         self._btn_save.clicked.connect(self._save_all)
         toolbar.addWidget(self._btn_save)
+        self._btn_help = QPushButton(t("review.toggle_help"))
+        self._btn_help.setCheckable(True)
+        self._btn_help.setChecked(True)
+        self._btn_help.toggled.connect(self._toggle_help)
+        toolbar.addWidget(self._btn_help)
         ep_layout.addLayout(toolbar)
 
         # 검수 테이블: [원문(읽기전용) | 번역(편집)]. 행 = 선택 파일의 전체 항목.
@@ -121,9 +127,9 @@ class ReviewerTab(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         hdr = self._table.horizontalHeader()
-        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        # 원문·번역 1:1 균등 — 둘 다 화면 폭에 맞춰 늘어난다.
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self._table.setColumnWidth(0, 320)
         self._table.cellChanged.connect(self._on_cell_changed)
         ep_layout.addWidget(self._table, stretch=1)
 
@@ -134,6 +140,10 @@ class ReviewerTab(QWidget):
         layout.addWidget(splitter, stretch=1)
 
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save_all)
+
+    def _toggle_help(self, checked: bool) -> None:
+        # 도움말 패널을 접으면(=체크 해제) 검수 표가 화면 전체로 넓어진다.
+        self._desc_panel.setVisible(checked)
 
     def _build_description_panel(self) -> DescriptionPanel:
         items = [

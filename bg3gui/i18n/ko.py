@@ -73,6 +73,7 @@ STRINGS = {
     "review.next": "다음 ▶",
     "review.save": "저장 (Ctrl+S)",
     "review.modified_only": "수정 항목만 보기",
+    "review.toggle_help": "도움말",
     "review.all": "전체 보기",
     "review.nav": "항목 {idx} / {total}",
     "review.count": "{total}개 항목 · {modified}개 수정",

@@ -103,3 +103,22 @@ def test_modified_filter_shows_new_target(qapp):
     # 다시 로드하면 편집값이 보여야 한다.
     tab._load_file(rf)
     assert tab._table.item(0, 1).text() == "불덩어리"
+
+
+def test_table_columns_both_stretch(qapp):
+    # 원문·번역 칸이 1:1로 균등하게 늘어나야 한다(번역 칸만 좁던 문제).
+    from PySide6.QtWidgets import QHeaderView
+    tab = _new_tab(qapp)
+    tab._load_file(_make_review_file())
+    hdr = tab._table.horizontalHeader()
+    assert hdr.sectionResizeMode(0) == QHeaderView.ResizeMode.Stretch
+    assert hdr.sectionResizeMode(1) == QHeaderView.ResizeMode.Stretch
+
+
+def test_help_panel_toggle(qapp):
+    # 도움말 패널을 접으면 표가 넓어진다.
+    tab = _new_tab(qapp)
+    tab._toggle_help(False)
+    assert tab._desc_panel.isHidden()
+    tab._toggle_help(True)
+    assert not tab._desc_panel.isHidden()

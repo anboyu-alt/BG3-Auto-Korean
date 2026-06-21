@@ -2,7 +2,8 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTabWidget, QTreeWidget, QTreeWidgetItem,
-    QInputDialog, QMessageBox,
+    QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView,
+    QAbstractItemView,
 )
 from PySide6.QtCore import Qt, QTimer
 
@@ -57,30 +58,33 @@ class GlossaryTab(QWidget):
         bl.addWidget(self._base_tree)
         self._tabs.addTab(builtin_w, t("glossary.builtin_tab"))
 
-        # Custom tab
+        # Custom tab — Excel식 인라인 편집 테이블
         custom_w = QWidget()
         cl = QVBoxLayout(custom_w)
         cl.setContentsMargins(8, 8, 8, 8)
         lbl_custom = QLabel(t("glossary.custom_info"))
         lbl_custom.setObjectName("label_muted")
         cl.addWidget(lbl_custom)
-        self._custom_tree = self._make_tree()
-        self._custom_tree.itemDoubleClicked.connect(lambda *_: self._edit_entry())
-        cl.addWidget(self._custom_tree)
+
+        self._custom_table = QTableWidget(0, 2)
+        self._custom_table.setHorizontalHeaderLabels([t("glossary.col_en"), t("glossary.col_ko")])
+        self._custom_table.verticalHeader().setVisible(False)
+        self._custom_table.setAlternatingRowColors(True)
+        self._custom_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        chdr = self._custom_table.horizontalHeader()
+        chdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        chdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._custom_table.setColumnWidth(0, 300)
+        self._custom_table.cellChanged.connect(self._on_custom_cell_changed)
+        cl.addWidget(self._custom_table)
 
         btn_row = QHBoxLayout()
-        self._btn_add = QPushButton(t("glossary.add"))
-        self._btn_add.clicked.connect(self._add_entry)
-        btn_row.addWidget(self._btn_add)
-        self._btn_edit = QPushButton(t("glossary.edit"))
-        self._btn_edit.clicked.connect(self._edit_entry)
-        btn_row.addWidget(self._btn_edit)
         self._btn_del = QPushButton(t("glossary.delete"))
         self._btn_del.setStyleSheet(
             f"QPushButton{{background:{theme.CLOSE_BG};border:1px solid #8b3a3a;color:#ff9999;}}"
             f"QPushButton:hover{{background:#7a2020;}}"
         )
-        self._btn_del.clicked.connect(self._delete_entry)
+        self._btn_del.clicked.connect(self._delete_selected_row)
         btn_row.addWidget(self._btn_del)
         self._btn_save = QPushButton(t("glossary.save"))
         self._btn_save.setObjectName("btn_start")
@@ -96,9 +100,8 @@ class GlossaryTab(QWidget):
         layout.addWidget(self._tabs, stretch=1)
 
         self._base_all: list[tuple[str, str]] = list(GLOSSARY.items())
-        self._custom_all: list[tuple[str, str]] = list(self._custom_data.items())
         self._populate(self._base_tree, self._base_all)
-        self._populate(self._custom_tree, self._custom_all)
+        self._populate_custom_table()
 
     def _make_tree(self) -> QTreeWidget:
         tree = QTreeWidget()
@@ -115,60 +118,65 @@ class GlossaryTab(QWidget):
             tree.addTopLevelItem(item)
 
     def _apply_filter(self, text: str) -> None:
+        # 검색은 기본 용어집(많음)에만 적용. 내 용어집은 인라인 편집 테이블이라
+        # 항상 전체를 보여준다(보통 소량).
         q = text.strip().lower()
-        def filt(rows):
-            return [(e, k) for e, k in rows if not q or q in e.lower() or q in k.lower()]
-        self._populate(self._base_tree, filt(self._base_all))
-        self._populate(self._custom_tree, filt(self._custom_all))
+        rows = [(e, k) for e, k in self._base_all if not q or q in e.lower() or q in k.lower()]
+        self._populate(self._base_tree, rows)
 
-    def _selected_custom(self) -> tuple[str, str] | None:
-        items = self._custom_tree.selectedItems()
-        if not items:
-            return None
-        return items[0].text(0), items[0].text(1)
+    def _set_custom_data(self, data: dict) -> None:
+        """테스트/외부에서 내 용어집 데이터를 주입하고 테이블을 다시 그린다."""
+        self._custom_data = dict(data)
+        self._populate_custom_table()
 
-    def _add_entry(self) -> None:
-        en, ok = QInputDialog.getText(self, t("glossary.add"), t("glossary.ask_en"))
-        if not ok or not en.strip():
+    def _cell_text(self, row: int, col: int) -> str:
+        item = self._custom_table.item(row, col)
+        return item.text() if item else ""
+
+    def _populate_custom_table(self) -> None:
+        self._custom_table.blockSignals(True)
+        rows = list(self._custom_data.items())
+        self._custom_table.setRowCount(len(rows) + 1)  # 맨 아래 신규 입력용 빈 행
+        for r, (en, ko) in enumerate(rows):
+            self._custom_table.setItem(r, 0, QTableWidgetItem(en))
+            self._custom_table.setItem(r, 1, QTableWidgetItem(ko))
+        empty = len(rows)
+        self._custom_table.setItem(empty, 0, QTableWidgetItem(""))
+        self._custom_table.setItem(empty, 1, QTableWidgetItem(""))
+        self._custom_table.blockSignals(False)
+
+    def _rebuild_custom_data(self) -> None:
+        data: dict = {}
+        for r in range(self._custom_table.rowCount()):
+            en = self._cell_text(r, 0).strip()
+            ko = self._cell_text(r, 1).strip()
+            if en:
+                data[en] = ko
+        self._custom_data = data
+
+    def _on_custom_cell_changed(self, row: int, col: int) -> None:
+        self._rebuild_custom_data()
+        # 마지막 행이 채워졌으면 새 빈 행을 추가해 연속 입력을 가능하게 한다.
+        last = self._custom_table.rowCount() - 1
+        if last < 0 or self._cell_text(last, 0).strip() or self._cell_text(last, 1).strip():
+            self._custom_table.blockSignals(True)
+            r = self._custom_table.rowCount()
+            self._custom_table.insertRow(r)
+            self._custom_table.setItem(r, 0, QTableWidgetItem(""))
+            self._custom_table.setItem(r, 1, QTableWidgetItem(""))
+            self._custom_table.blockSignals(False)
+
+    def _delete_selected_row(self) -> None:
+        row = self._custom_table.currentRow()
+        if row < 0 or row >= self._custom_table.rowCount():
             return
-        en = en.strip()
-        ko, ok2 = QInputDialog.getText(self, t("glossary.add"), t("glossary.ask_ko", en=en))
-        if not ok2 or not ko.strip():
-            return
-        self._custom_data[en] = ko.strip()
-        self._refresh_custom()
-
-    def _edit_entry(self) -> None:
-        sel = self._selected_custom()
-        if not sel:
-            QMessageBox.warning(self, t("common.warning"), t("glossary.select_first"))
-            return
-        en, ko = sel
-        new_ko, ok = QInputDialog.getText(
-            self, t("glossary.edit"), t("glossary.ask_edit", en=en), text=ko
-        )
-        if ok and new_ko.strip():
-            self._custom_data[en] = new_ko.strip()
-            self._refresh_custom()
-
-    def _delete_entry(self) -> None:
-        sel = self._selected_custom()
-        if not sel:
-            QMessageBox.warning(self, t("common.warning"), t("glossary.select_first"))
-            return
-        en, _ = sel
-        if QMessageBox.question(
-            self, t("glossary.delete"), t("glossary.confirm_delete", en=en),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        ) == QMessageBox.StandardButton.Yes:
-            self._custom_data.pop(en, None)
-            self._refresh_custom()
-
-    def _refresh_custom(self) -> None:
-        self._custom_all = list(self._custom_data.items())
-        self._apply_filter(self._search.text())
+        self._custom_table.blockSignals(True)
+        self._custom_table.removeRow(row)
+        self._custom_table.blockSignals(False)
+        self._rebuild_custom_data()
 
     def _save(self) -> None:
+        self._rebuild_custom_data()
         save_custom_glossary(self._custom_data)
         self._lbl_saved.setText(t("glossary.saved", count=len(self._custom_data)))
         QTimer.singleShot(3000, lambda: self._lbl_saved.setText(""))

@@ -83,7 +83,7 @@ STRINGS = {
     "glossary.builtin_tab": "📚 기본 용어집",
     "glossary.custom_tab": "✏️ 내 용어집",
     "glossary.builtin_info": "총 {count}개 항목 — 읽기 전용입니다.",
-    "glossary.custom_info": "내 용어집이 기본 용어집보다 우선 적용됩니다.",
+    "glossary.custom_info": "내 용어집이 기본 용어집보다 우선 적용됩니다. 칸을 더블클릭해 바로 입력·수정하고, 맨 아래 빈 줄에 새 용어를 추가하세요. 저장을 눌러야 반영됩니다.",
     "glossary.col_en": "영어 (English)",
     "glossary.col_ko": "한국어",
     "glossary.add": "+ 추가",

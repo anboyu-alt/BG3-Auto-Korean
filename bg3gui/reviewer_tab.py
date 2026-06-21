@@ -7,11 +7,10 @@ from typing import List, Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QListWidget, QMessageBox, QSplitter,
-    QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QMessageBox, QSplitter, QComboBox, QScrollArea, QFrame, QPlainTextEdit,
 )
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QKeySequence, QShortcut, QColor
+from PySide6.QtCore import Qt, Signal, QThread, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
 
 from bg3core.config import UserConfig
 from bg3core.divine import divine_extract, divine_repack, ensure_loca
@@ -44,11 +43,13 @@ class ReviewerTab(QWidget):
         self._review_files: List[ReviewFile] = []
         self._current_file: Optional[ReviewFile] = None
         self._current_entries: List[Entry] = []
+        self._editors: List[QPlainTextEdit] = []
+        self._source_labels: List[QLabel] = []
         self._show_modified_only = False
         self._temp_dir: Optional[Path] = None
         self._pak_path: Optional[Path] = None
 
-        # 좌측: 검수 컨트롤 ~50% · 우측: 기능 설명 패널 ~50% (드래그로 비율 조절 가능)
+        # 좌측: 검수 컨트롤 · 우측: 도움말(접기 가능). 검수 폭이 중요해 표 쪽을 넓게.
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -56,13 +57,12 @@ class ReviewerTab(QWidget):
         outer_split.setChildrenCollapsible(False)
         left = QWidget()
         outer_split.addWidget(left)
-        # 검수 탭은 표 폭이 중요 → 도움말 패널은 좁게 두고, 접기 버튼으로 숨길 수 있다.
         self._desc_panel = self._build_description_panel()
         self._desc_panel.setMinimumWidth(200)
         outer_split.addWidget(self._desc_panel)
         outer_split.setStretchFactor(0, 4)
         outer_split.setStretchFactor(1, 1)
-        outer_split.setSizes([800, 220])
+        outer_split.setSizes([820, 220])
         root.addWidget(outer_split)
 
         layout = QVBoxLayout(left)
@@ -82,24 +82,13 @@ class ReviewerTab(QWidget):
         top_row.addWidget(self._btn_open)
         layout.addLayout(top_row)
 
-        # Splitter: file list (left) + editor (right)
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        # 파일 드롭다운 (번역 파일이 여러 개일 때만 보임)
+        self._file_combo = QComboBox()
+        self._file_combo.currentIndexChanged.connect(self._on_file_index)
+        self._file_combo.hide()
+        layout.addWidget(self._file_combo)
 
-        file_panel = QWidget()
-        fp_layout = QVBoxLayout(file_panel)
-        fp_layout.setContentsMargins(0, 0, 0, 0)
-        fp_layout.setSpacing(4)
-        fp_layout.addWidget(QLabel(t("review.files")))
-        self._file_list = QListWidget()
-        self._file_list.currentRowChanged.connect(self._on_file_select)
-        fp_layout.addWidget(self._file_list)
-        splitter.addWidget(file_panel)
-
-        edit_panel = QWidget()
-        ep_layout = QVBoxLayout(edit_panel)
-        ep_layout.setContentsMargins(0, 0, 0, 0)
-        ep_layout.setSpacing(6)
-
+        # Toolbar: 카운트 · 수정만 보기 · 저장 · 도움말 토글
         toolbar = QHBoxLayout()
         self._count_label = QLabel(t("review.none"))
         self._count_label.setStyleSheet(f"color:{theme.TEXT_MUTED};background:transparent;")
@@ -117,38 +106,28 @@ class ReviewerTab(QWidget):
         self._btn_help.setChecked(True)
         self._btn_help.toggled.connect(self._toggle_help)
         toolbar.addWidget(self._btn_help)
-        ep_layout.addLayout(toolbar)
+        layout.addLayout(toolbar)
 
-        # 검수 테이블: [원문(읽기전용) | 번역(편집)]. 행 = 선택 파일의 전체 항목.
-        self._table = QTableWidget(0, 2)
-        self._table.setHorizontalHeaderLabels([t("review.source_lang"), t("review.target_lang")])
-        self._table.verticalHeader().setVisible(False)
-        self._table.setWordWrap(True)
-        self._table.setAlternatingRowColors(True)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
-        hdr = self._table.horizontalHeader()
-        # 원문·번역 1:1 균등 — 둘 다 화면 폭에 맞춰 늘어난다.
-        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self._table.cellChanged.connect(self._on_cell_changed)
-        ep_layout.addWidget(self._table, stretch=1)
-
-        splitter.addWidget(edit_panel)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([140, 600])
-        layout.addWidget(splitter, stretch=1)
+        # 카드 리스트: 항목마다 [원문 ↑ / 번역 ↓] 세로 블록을 쌓아 스크롤한다.
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setStyleSheet("QScrollArea{border:none;background:transparent;}")
+        self._cards_host = QWidget()
+        self._cards_layout = QVBoxLayout(self._cards_host)
+        self._cards_layout.setContentsMargins(0, 0, 8, 0)
+        self._cards_layout.setSpacing(10)
+        self._cards_layout.addStretch()
+        self._scroll.setWidget(self._cards_host)
+        layout.addWidget(self._scroll, stretch=1)
 
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save_all)
 
     def _toggle_help(self, checked: bool) -> None:
-        # 도움말 패널을 접으면(=체크 해제) 검수 표가 화면 전체로 넓어진다.
         self._desc_panel.setVisible(checked)
 
     def _build_description_panel(self) -> DescriptionPanel:
         items = [
             (t("review.pak_label"), t("desc.review.open")),
-            (t("review.files"), t("desc.review.files")),
             (t("review.source_lang"), t("desc.review.edit")),
             (t("review.save"), t("desc.review.save")),
         ]
@@ -157,6 +136,7 @@ class ReviewerTab(QWidget):
     def set_config(self, cfg: UserConfig) -> None:
         self._cfg = cfg
 
+    # ── PAK 열기 ─────────────────────────────────────────────
     def _open_pak(self) -> None:
         path_str = self._picker.get()
         if not path_str:
@@ -186,39 +166,104 @@ class ReviewerTab(QWidget):
             QMessageBox.warning(self, t("common.warning"),
                 "번역 항목을 찾지 못했습니다.\n(대상 언어 폴더가 있는지 확인하세요)")
             return
+        self._show_review_files(review_files)
+
+    def _show_review_files(self, review_files: List[ReviewFile]) -> None:
+        """검수 파일들을 UI에 채운다. 1개면 콤보를 숨기고 자동 로드, 여러 개면 콤보로 선택."""
         self._review_files = review_files
-        self._file_list.clear()
+        self._file_combo.blockSignals(True)
+        self._file_combo.clear()
         for rf in review_files:
-            self._file_list.addItem(rf.filename)
+            self._file_combo.addItem(rf.filename)
+        self._file_combo.blockSignals(False)
+        self._file_combo.setVisible(len(review_files) > 1)
         if review_files:
-            self._file_list.setCurrentRow(0)
+            self._file_combo.setCurrentIndex(0)
+            self._load_file(review_files[0])
 
-    def _on_file_select(self, row: int) -> None:
-        if 0 <= row < len(self._review_files):
-            self._load_file(self._review_files[row])
+    def _on_file_index(self, idx: int) -> None:
+        if 0 <= idx < len(self._review_files):
+            self._load_file(self._review_files[idx])
 
+    # ── 카드 채우기 ──────────────────────────────────────────
     def _load_file(self, rf: ReviewFile) -> None:
         self._current_file = rf
         self._current_entries = [
             e for e in rf.entries
             if not self._show_modified_only or e.modified
         ]
-        self._populate_table()
+        self._populate_cards()
 
-    def _populate_table(self) -> None:
-        # 프로그램적 채우기 중에는 cellChanged가 가짜 수정으로 잡히지 않도록 차단.
-        self._table.blockSignals(True)
-        self._table.setRowCount(len(self._current_entries))
-        for row, entry in enumerate(self._current_entries):
-            en_item = QTableWidgetItem(entry.english)
-            en_item.setFlags(en_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            tr_item = QTableWidgetItem(entry.display_target)
-            if entry.modified:
-                tr_item.setForeground(QColor(theme.GOLD))
-            self._table.setItem(row, 0, en_item)
-            self._table.setItem(row, 1, tr_item)
-        self._table.blockSignals(False)
+    def _clear_cards(self) -> None:
+        # addStretch 항목 하나를 남기고 카드 위젯을 모두 제거한다.
+        while self._cards_layout.count() > 1:
+            item = self._cards_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+        self._editors = []
+        self._source_labels = []
+
+    def _populate_cards(self) -> None:
+        self._clear_cards()
+        for idx, entry in enumerate(self._current_entries):
+            card = self._make_card(idx, entry)
+            self._cards_layout.insertWidget(self._cards_layout.count() - 1, card)
         self._update_count()
+        # 레이아웃이 폭을 확정한 다음 틱에 줄바꿈 기준 높이를 다시 맞춘다.
+        QTimer.singleShot(0, self._autosize_all)
+
+    def _autosize_all(self) -> None:
+        for ed in self._editors:
+            self._autosize(ed)
+
+    def _make_card(self, idx: int, entry: Entry) -> QFrame:
+        card = QFrame()
+        card.setObjectName("review_card")
+        card.setStyleSheet(
+            "QFrame#review_card{background:%s;border:1px solid %s;border-radius:6px;}"
+            % (theme.BG_CARD, theme.DIVIDER)
+        )
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(12, 10, 12, 12)
+        cl.setSpacing(6)
+
+        # 원문: 라벨로 전체 표시(줄바꿈) — 길어도 안 잘림. 복사용 선택 가능.
+        src = QLabel(entry.english)
+        src.setWordWrap(True)
+        src.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        src.setStyleSheet(f"color:{theme.TEXT_SECONDARY};background:transparent;")
+        cl.addWidget(src)
+
+        # 번역: 편집 가능. 내용 길이에 맞춰 높이 자동 조절.
+        tgt = QPlainTextEdit(entry.display_target)
+        tgt.setStyleSheet(
+            f"QPlainTextEdit{{background:{theme.BG_LOG};color:{theme.TEXT_PRIMARY};"
+            f"border:1px solid {theme.DIVIDER};border-radius:4px;padding:4px;}}"
+        )
+        tgt.textChanged.connect(lambda i=idx: self._on_edit(i))
+        tgt.textChanged.connect(lambda e=tgt: self._autosize(e))
+        cl.addWidget(tgt)
+        self._autosize(tgt)
+
+        self._editors.append(tgt)
+        self._source_labels.append(src)
+        return card
+
+    def _autosize(self, editor: QPlainTextEdit) -> None:
+        # 실제 줄바꿈된 문서 높이에 맞춰 조절(최소 2줄, 너무 길면 상한 후 내부 스크롤).
+        doc = editor.document()
+        width = editor.viewport().width()
+        if width > 0:
+            doc.setTextWidth(width)
+        h = int(doc.size().height() + editor.frameWidth() * 2 + 10)
+        min_h = int(editor.fontMetrics().lineSpacing() * 2 + 14)
+        editor.setFixedHeight(max(min_h, min(h, 320)))
+
+    def resizeEvent(self, event) -> None:
+        # 폭이 바뀌면(또는 처음 표시되면) 줄바꿈이 달라지므로 카드 높이를 다시 맞춘다.
+        super().resizeEvent(event)
+        self._autosize_all()
 
     def _update_count(self) -> None:
         if not self._current_entries:
@@ -229,17 +274,17 @@ class ReviewerTab(QWidget):
             t("review.count", total=len(self._current_entries), modified=modified)
         )
 
-    def _on_cell_changed(self, row: int, col: int) -> None:
-        if col != 1 or not (0 <= row < len(self._current_entries)):
+    def _on_edit(self, idx: int) -> None:
+        if not (0 <= idx < len(self._current_entries)):
             return
-        entry = self._current_entries[row]
-        new_text = self._table.item(row, col).text()
+        entry = self._current_entries[idx]
+        new_text = self._editors[idx].toPlainText()
         if new_text != entry.target_text:
             entry.modified = True
             entry.new_target = new_text
-            self._table.item(row, col).setForeground(QColor(theme.GOLD))
             self._update_count()
 
+    # ── 저장 / 필터 / 도움말 ─────────────────────────────────
     def _save_all(self) -> None:
         if not self._review_files or not self._pak_path or not self._temp_dir:
             return
@@ -250,8 +295,6 @@ class ReviewerTab(QWidget):
         for rf in modified:
             save_modified_xml(rf)
         ensure_loca(self._cfg.divine_exe_path, self._temp_dir, force=True)
-        # 번역 파이프라인과 동일하게: 영어 원문 .xml은 보존하고 번역된 .loca를
-        # 소스 언어 폴더 .loca로 복사(영어 핸들을 읽는 모드의 인게임 번역 유지).
         mirror_loca_to_source_languages(
             self._temp_dir,
             target_folder=getattr(self._cfg, "target_language", "Korean"),

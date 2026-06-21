@@ -1,0 +1,24 @@
+==> BG3 Mod Translator v6.0 빌드 시작 (모드: zip)
+
+[2/2] Nuitka standalone 빌드...
+Nuitka-Options: Used command line options:
+Nuitka-Options:   --standalone --assume-yes-for-downloads --enable-plugin=pyside6 --windows-console-mode=disable --include-package=bg3gui --include-package=bg3core --include-package=bg3gui.i18n --output-dir=nuitka_build bg3_mod_translator.py
+Nuitka:WARNING: The Python version '3.14' is only experimentally supported by Nuitka '4.1.2', but an upcoming release will change that. In the mean time use Python version '3.13' instead or newer Nuitka.
+Nuitka: Starting Python compilation with:
+Nuitka:   Version '4.1.2' on Python 3.14 (flavor 'CPython Official') commercial grade 'not installed'.
+Nuitka-Plugins:pyside6: Including Qt plugins 'iconengines,imageformats,platforms,styles,tls' below 'PySide6\qt-plugins'.
+Nuitka-Plugins:dll-files: Found 4 files DLLs from shiboken6 installation.
+Nuitka-Inclusion: Including Windows Runtime DLLs, which increases distribution size. Use '--include-windows-runtime-dlls=no' to disable, or make explicit with '--include-windows-runtime-dlls=yes'.
+Nuitka: Completed Python level compilation and optimization.
+Nuitka: Generating source code for C backend compiler.
+Nuitka: Running data composer tool for optimal constant value handling.
+Nuitka: Running C compilation via Scons.
+Nuitka-Scons: Backend C compiler: cl (cl 14.5).
+Nuitka-Scons: Backend C linking with 76 files (no progress information available for this stage).
+Nuitka-Scons: Compiled 76 C files using clcache with 73 cache hits and 3 cache misses.
+Nuitka: Keeping build directory 'nuitka_build\bg3_mod_translator.build'.
+Nuitka: Successfully created '~\vibecoding\BG3-Auto-Korean\.claude\worktrees\heuristic-gauss-7eb090\nuitka_build\bg3_mod_translator.dist\bg3_mod_translator.exe'.
+  ✅ BG3_ModTranslator_v6.0.zip
+
+==> 완료. 산출물:
+  • BG3_ModTranslator_v6.0.zip  (Nexus 업로드)

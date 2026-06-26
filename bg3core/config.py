@@ -73,6 +73,9 @@ def _first_run_defaults() -> UserConfig:
     bg3 = auto_detect_bg3()
     if bg3:
         cfg.bg3_install_path = bg3
+        # BG3가 감지되면 공식 언어팩 정확매칭(무-API)을 기본 ON으로 제안한다.
+        # Divine 미설정/공식팩 미발견이면 파이프라인이 graceful하게 무력화하므로 안전.
+        cfg.use_official_glossary = True
         lang = detect_game_language(bg3)
         if lang:
             from .language import ui_language_code

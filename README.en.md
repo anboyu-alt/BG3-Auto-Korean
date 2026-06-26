@@ -1,9 +1,13 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v6.0
+# BG3 Mod Translator v7.0
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
-Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box with **a single EXE file** — no installation required.
+Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box as a **portable build — just extract and run, no installation required.**
+
+> ### 🆕 What's new in v7.0
+> - 🚫 **No external tools needed** — Divine.exe / LSLib / .NET are no longer required; `.pak`/`.loca` are handled natively.
+> - 📖 **Official language-pack glossary now on by default** — exact matches reuse the official translation with zero API calls.
 
 > ### 🆕 What's new in v6.0
 > - 🌍 **App UI in 15 languages** — auto-detects your game's language and matches both the target and UI
@@ -38,11 +42,13 @@ This tool unpacks the original mod (`.pak`), adds translations, and **repacks th
 
 ## ⬇️ Download the GUI Version
 
-> **An EXE version you can use immediately without installing Python.**
+> **A portable build you can use immediately without installing Python.**
 
-### 👉 [Download BG3_ModTranslator.exe](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
+### 👉 [Download BG3_ModTranslator_v7.0.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
 
-Click `BG3_ModTranslator.exe` on the Releases page to download instantly.
+Download `BG3_ModTranslator_v7.0.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
+
+> 🛡️ This is a free, open-source, unsigned tool, so antivirus warnings used to appear — the folder (ZIP) build means no antivirus false positives.
 
 ---
 
@@ -63,7 +69,7 @@ Click `BG3_ModTranslator.exe` on the Releases page to download instantly.
 
 ## Prerequisites
 
-Before running the EXE file, please prepare the following 3 items.
+Before running the program, you only need to prepare the following.
 
 ### 1. Get a Gemini API Key (Free)
 
@@ -78,40 +84,11 @@ Required for Google AI to perform translations. Obtaining a key is free.
 
 ---
 
-### 2. Download LSLib (ExportTool)
-
-A tool needed to unpack and repack `.pak` files.
-
-1. Go to [github.com/Norbyte/lslib/releases](https://github.com/Norbyte/lslib/releases)
-2. Click the latest version's **`ExportTool-vX.X.X.zip`** to download
-3. Extract the downloaded `.zip` file
-4. After extraction, the file structure will look like this:
-   ```
-   ExportTool-v1.20.4/
-   └── Packed/
-       └── Tools/
-           └── Divine.exe   ← You will enter the path to this file later
-   ```
-
-> Example path: `C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe`
-
----
-
-### 3. Install .NET 8.0 Runtime
-
-Required to run `Divine.exe`. Skip this if it is already installed.
-
-1. Go to [dotnet.microsoft.com/en-us/download/dotnet/8.0](https://dotnet.microsoft.com/ko-kr/download/dotnet/8.0)
-2. Under **".NET Desktop Runtime"**, click **"x64"** to download the installer
-3. Run the installer and follow the prompts
-
----
-
 ## Download
 
 1. Go to the **[Releases](../../releases)** page of this repository
-2. Under **Assets** of the latest release, click `BG3_ModTranslator.exe` to download
-3. Save the file to any folder you like (the location does not matter)
+2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.0.zip` to download
+3. **Extract all files** from the `.zip`, then run `BG3_ModTranslator.exe` inside the extracted folder (the folder can be in any location)
 
 > **If a Windows security warning appears:** Click "More info" → "Run anyway".
 > This warning appears because the file lacks a code-signing certificate; it is not actually dangerous.
@@ -126,7 +103,7 @@ On first launch, a sidebar navigation screen with a dark amber theme will appear
 Click **"Settings"** in the left sidebar.
 
 > 📌 **The values already shown in the input fields in screenshots are just examples.**
-> You must enter your own values for the API key, Divine.exe path, and cache file path.
+> You must enter your own values for the API key and cache file path.
 
 ### ① Enter Your Gemini API Key
 
@@ -135,24 +112,17 @@ Paste the API key you obtained during the prerequisites step into the `Gemini AP
 - It is hidden as `****` by default for security
 - Click the **"Show"** button to view what you have entered
 
-### ② Enter the Divine.exe Path
-
-Click the **"Browse"** button to the right of the `Divine.exe Path` field.
-When the file picker opens, navigate to the folder where you extracted LSLib and select `Divine.exe`.
-
-> Example: `C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe`
-
 > 💡 **The target language and AI model are chosen in the "Translate" tab** — they are not in Settings. (See [Translating](#translating))
 
-### ③ Select App UI Language
+### ② Select App UI Language
 
 Under `App UI Language`, choose the interface language for the program (Korean / English). This is the program's display language, not the translation output language, and it takes effect after a **restart**.
 
-### ④ UI Scale (Optional)
+### ③ UI Scale (Optional)
 
 `UI Scale` controls on-screen text and button size. If everything looks tiny on a high-res (4K) monitor, raise it to `1.25`–`2.0`; `auto` follows your monitor's DPI. Takes effect after a restart.
 
-### ⑤ Translation Cache File Path (Optional)
+### ④ Translation Cache File Path (Optional)
 
 The translation cache is a file that stores text you have already translated.
 
@@ -161,7 +131,7 @@ The translation cache is a file that stores text you have already translated.
 - When this file exists, the same text will be retrieved from the cache instead of calling the API again → **Faster translation + lower API usage**
 - **Never delete this file.** Deleting it causes all previously translated content to be forgotten and retranslated from scratch.
 
-### ⑥ Save
+### ⑤ Save
 
 Click the **"Save"** button.
 
@@ -320,17 +290,6 @@ Install this `_<language>.pak` file using your BG3 mod manager.
 - If blocked by Windows Defender: right-click the file → "Properties" → check "Unblock" → OK
 - Or, in the "Windows protected your PC" dialog, click "More info" → "Run anyway"
 
-### "Cannot find Divine.exe" error
-
-- Check that the Divine.exe path in the Settings tab is correct
-- Example path: `C:\ExportTool-v1.20.4\Packed\Tools\Divine.exe`
-- Re-download LSLib, re-extract it, and set the path again
-
-### Error when running Divine.exe
-
-- Check that .NET 8.0 Desktop Runtime is installed
-- Reinstall from [dotnet.microsoft.com/en-us/download/dotnet/8.0](https://dotnet.microsoft.com/ko-kr/download/dotnet/8.0)
-
 ### "429 rate limit" message appears
 
 - This is the per-minute request limit for the Gemini free plan
@@ -450,12 +409,18 @@ However, items that could break game functionality if auto-translated — such a
 
 ## Update History
 
+### v7.0
+- **Removed the Divine.exe (LSLib) dependency entirely**: `.pak`/`.loca` are now handled natively in Python — no external tools or .NET runtime needed.
+- **Official language-pack exact-match glossary auto-applied**: exact matches reuse the official translation with no API calls; default ON when the game is detected.
+- **Distribution changed to a portable ZIP (folder build)**: shipped as a folder instead of a single EXE to avoid antivirus false positives.
+- **Version display unified**: the version string is now read from a single source.
+
 ### v6.0
 - **🌍 Full 15-language app UI**: The program interface itself is now available in **all 15 languages**, not just English/Korean. On first launch it **auto-detects your game's language** and matches both the translation target and the app UI to it. (Missing strings fall back to English.)
 - **📖 Official language pack reference (new)**: When enabled in Settings, the tool uses your installed game's **official language packs** (English ↔ target) as a translation reference. Mod text that exactly matches an official term **reuses the official translation** (saving API calls), and official terms inside sentences are injected into the AI prompt for **consistent wording**. The dictionary is built once from your local game files and cached; it is never redistributed (translation-memory reference only).
 - **📋 Table-based Review tab**: Instead of stepping through one entry at a time, review **source and translation side by side in a table** and edit many entries quickly. Double-click a Translation cell to fix it inline; edited rows are highlighted in gold.
 - **✏️ Excel-style inline glossary editing**: Edit My Glossary **directly in a table** — no repeated Add dialogs — and type into the empty bottom row to add a new term.
-- **🚀 First-run setup wizard**: On first launch, the API key, Divine.exe, and BG3 folder are **guided and entered in one place** (Divine and game folder are auto-detected).
+- **🚀 First-run setup wizard**: On first launch, the API key and BG3 folder are **guided and entered in one place** (the game folder is auto-detected).
 - **🗂️ BG3 install folder auto-detection**: Scans Steam libraries to find the BG3 install path (used for official-pack reference and game-language detection).
 - **Logs unified to English**: Progress logs are unified to English so international users read the same output (the app UI stays in all 15 languages).
 

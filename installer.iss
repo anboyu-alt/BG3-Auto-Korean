@@ -35,6 +35,13 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=.
 OutputBaseFilename=BG3_ModTranslator_v{#MyAppVersion}_setup
+; setup.exe 자체에 버전 정보를 박는다(메타데이터 비면 ML 백신 오탐↑).
+VersionInfoVersion={#MyAppVersion}
+VersionInfoProductVersion={#MyAppVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoProductName={#MyAppName}
+VersionInfoDescription={#MyAppName} Setup
+VersionInfoCopyright=Copyright (C) 2026 anboyu - MIT License
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

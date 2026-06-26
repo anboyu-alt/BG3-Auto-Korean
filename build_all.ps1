@@ -61,6 +61,9 @@ Write-Host "`n[1] Nuitka standalone 폴더 빌드..." -ForegroundColor Yellow
 $outDir = "nuitka_build"
 if (Test-Path $outDir) { Remove-Item -Recurse -Force $outDir }
 
+# exe에 버전 정보(회사·제품·설명)를 박아 "정상 소프트웨어"로 보이게 한다.
+# 메타데이터가 비면 ML 백신이 의심 신호로 가중하므로 오탐을 줄이는 무료 조치.
+# (아이콘이 있으면 --windows-icon-from-ico=resources\icon.ico 줄을 추가하면 더 좋다.)
 python -m nuitka `
     --standalone `
     --assume-yes-for-downloads `
@@ -70,6 +73,12 @@ python -m nuitka `
     --include-package=bg3core `
     --include-package=bg3gui.i18n `
     --include-package=lz4 `
+    --company-name=anboyu `
+    --product-name="BG3 Mod Translator" `
+    --file-version=$Version `
+    --product-version=$Version `
+    --file-description="BG3 Mod Translator - free AI localization for BG3 mods" `
+    --copyright="Copyright (c) 2026 anboyu - MIT License" `
     --output-dir=$outDir `
     $Entry
 

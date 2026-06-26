@@ -17,6 +17,8 @@ BG3_ModTranslator/
 BG3_ModTranslator.dist/
 BG3_ModTranslator.build/
 *.zip
+*_setup.exe
+pyi_*.log
 _locacheck/
 
 # 번역 캐시 (지우면 재번역 비용 발생 — 절대 삭제 금지!)

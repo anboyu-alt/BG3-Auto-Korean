@@ -1,22 +1,22 @@
 # build_all.ps1 — BG3 Mod Translator 빌드
 #
-# 기본 배포물(GitHub·Nexus 공용): Nuitka standalone 폴더(0/71)를 Inno Setup으로 감싼
-#   단일 설치 파일  → BG3_ModTranslator_v<버전>_setup.exe
-# 보조: 같은 폴더의 zip(무설치 사용자용)  → BG3_ModTranslator_v<버전>.zip
+# 기본 배포물(GitHub·Nexus 공용): Nuitka standalone 폴더(내부 exe가 0/71)를 zip으로
+#   포장  → BG3_ModTranslator_v<버전>.zip
 #
-# 설치 파일은 onefile 패커와 달리 "신뢰 런타임 폴더 + 표준 인스톨러 포맷"이라 코드 서명
-# 없이도 오탐이 거의 없다(Electron 앱이 NSIS로 미탐지를 얻는 것과 같은 원리).
+# 실험 결론(2026-06): 미서명 "단일 self-contained exe"는 어떤 패키징 도구로도 0 탐지가
+#   불가능하다. onefile/인스톨러는 압축 overlay·자가해제 패턴이라 ML 백신이 오탐한다.
+#   유일한 진짜 0은 폴더형(미압축) — 그 안의 exe가 0/71. 그래서 zip이 정식 배포물이다.
+#   (단일 exe 0은 코드 서명으로만 가능.) 측정: Nuitka폴더 0 / PyInstaller onefile 2 /
+#   Inno 설치파일 1~2 / Nuitka onefile 23 / 자체부트로더 onefile 9.
 #
 # 사전 준비:
-#   pip install nuitka            (+ pyinstaller — -Only exe 쓸 때만)
+#   pip install nuitka
 #   pip install -r requirements-gui.txt   (PySide6·lz4 등 런타임 의존성)
-#   Inno Setup 6  https://jrsoftware.org/isdl.php   (설치 파일 생성에 필요)
 #
 # 사용:
-#   pwsh -File build_all.ps1                 # 폴더 → 설치파일 + zip
-#   pwsh -File build_all.ps1 -Only installer # 설치파일만
-#   pwsh -File build_all.ps1 -Only zip       # zip만
-#   pwsh -File build_all.ps1 -Only exe       # (레거시) PyInstaller 단일 EXE
+#   pwsh -File build_all.ps1                 # 폴더 → zip (권장·기본)
+#   pwsh -File build_all.ps1 -Only installer # (옵션, 오탐 유발) Inno 설치파일. Inno Setup 6 필요
+#   pwsh -File build_all.ps1 -Only exe       # (옵션, 오탐 유발) PyInstaller 단일 EXE. pyinstaller 필요
 
 param(
     [ValidateSet("all", "installer", "zip", "exe")]
@@ -93,9 +93,11 @@ $exeIn = Join-Path $staged "bg3_mod_translator.exe"
 if (Test-Path $exeIn) { Rename-Item -Path $exeIn -NewName "$AppName.exe" }
 Write-Host "  ✅ $staged" -ForegroundColor Green
 
-# ── 설치 파일 (Inno Setup) — GitHub·Nexus 공용 ────────────────
-if ($Only -eq "all" -or $Only -eq "installer") {
-    Write-Host "`n[2] Inno Setup 설치 파일 생성..." -ForegroundColor Yellow
+# ── 설치 파일 (Inno Setup) — 옵션(-Only installer일 때만) ─────
+# 주의: 인스톨러는 PE에 overlay를 덧붙여 ML 백신 오탐(Wacatac.B!ml 등)을 유발한다.
+# 0 탐지가 목표면 아래 zip(폴더형)을 쓴다. 설치 편의가 꼭 필요할 때만 생성.
+if ($Only -eq "installer") {
+    Write-Host "`n[opt] Inno Setup 설치 파일 생성(오탐 가능)..." -ForegroundColor Yellow
     $iscc = Find-ISCC
     if (-not $iscc) {
         Write-Warning "Inno Setup(ISCC.exe)을 찾지 못했습니다. 설치 파일을 건너뜁니다."
@@ -110,9 +112,26 @@ if ($Only -eq "all" -or $Only -eq "installer") {
     }
 }
 
-# ── zip (무설치 사용자용 보조) ────────────────────────────────
+# ── zip (정식 배포물 — 폴더형이라 내부 exe가 0 탐지) ──────────
 if ($Only -eq "all" -or $Only -eq "zip") {
-    Write-Host "`n[3] zip 패킹..." -ForegroundColor Yellow
+    Write-Host "`n[2] zip 패킹(정식 배포물)..." -ForegroundColor Yellow
+    # 비전문가용 실행 안내를 폴더에 동봉(폴더 안 파일이 많아 헷갈리지 않도록)
+    $readme = @"
+BG3 Mod Translator - 실행 방법 / How to run
+==============================================
+[한국어]
+1) 이 zip의 모든 파일을 한 폴더에 압축 해제하세요.
+2) BG3_ModTranslator.exe 를 더블클릭해 실행하세요.
+   * 같은 폴더의 다른 파일들은 실행에 필요합니다. 지우거나 옮기지 마세요.
+백신 안내: 오픈소스 무료 도구입니다(미서명). 폴더형이라 백신 오탐이 없습니다.
+
+[English]
+1) Extract ALL files from this zip into one folder.
+2) Double-click BG3_ModTranslator.exe to run.
+   * The other files are required - do not delete or move them.
+Antivirus note: free open-source tool (unsigned). Folder build, so no AV false positives.
+"@
+    Set-Content -Path (Join-Path $staged "READMEFIRST.txt") -Value $readme -Encoding UTF8
     $zip = "${AppName}_v$Version.zip"
     if (Test-Path $zip) { Remove-Item -Force $zip }
     Compress-Archive -Path $staged -DestinationPath $zip
@@ -120,5 +139,5 @@ if ($Only -eq "all" -or $Only -eq "zip") {
 }
 
 Write-Host "`n==> 완료. 산출물:" -ForegroundColor Cyan
-if ($Only -eq "all" -or $Only -eq "installer") { Write-Host "  • BG3_ModTranslator_v${Version}_setup.exe  (GitHub·Nexus 공용, 권장)" }
-if ($Only -eq "all" -or $Only -eq "zip") { Write-Host "  • ${AppName}_v$Version.zip  (무설치 보조)" }
+if ($Only -eq "all" -or $Only -eq "zip") { Write-Host "  • ${AppName}_v$Version.zip  (정식 배포물 — 내부 exe 0 탐지, GitHub·Nexus 공용)" }
+if ($Only -eq "installer") { Write-Host "  • BG3_ModTranslator_v${Version}_setup.exe  (옵션 — 오탐 유발 가능)" }

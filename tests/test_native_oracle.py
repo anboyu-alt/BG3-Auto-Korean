@@ -3,6 +3,7 @@
 Divine.exe와 BG3 설치가 모두 있을 때만 실행되며, 없으면 전체 모듈을 skip한다.
 (CI/일반 개발 환경에서는 자동으로 건너뛴다.)
 """
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -12,13 +13,20 @@ import pytest
 from bg3core import lspk, loca
 from bg3core.config import load_config
 
+# Divine은 v7.0에서 제거됐으나, 네이티브 출력을 정답지로 대조하려면 외부 Divine.exe가
+# 필요하다. 환경변수 BG3_DIVINE_EXE로 지정한다(미지정 시 Divine 인터롭 테스트는 skip).
 _cfg = load_config()
-_DIVINE = _cfg.divine_exe_path
+_DIVINE = os.environ.get("BG3_DIVINE_EXE", "")
 _BG3 = _cfg.bg3_install_path
 
+# 공식팩 읽기 테스트는 BG3만 필요. Divine 인터롭 테스트는 추가로 BG3_DIVINE_EXE 필요.
 pytestmark = pytest.mark.skipif(
-    not (_DIVINE and Path(_DIVINE).is_file() and _BG3 and Path(_BG3).is_dir()),
-    reason="Divine.exe / BG3 install not available",
+    not (_BG3 and Path(_BG3).is_dir()),
+    reason="BG3 install not available",
+)
+_need_divine = pytest.mark.skipif(
+    not (_DIVINE and Path(_DIVINE).is_file()),
+    reason="BG3_DIVINE_EXE not set (Divine.exe removed in v7.0)",
 )
 
 
@@ -51,6 +59,7 @@ def test_read_official_english_pak_and_parse_loca():
     assert "Fireball" in joined
 
 
+@_need_divine
 def test_divine_reads_our_written_pak(tmp_path):
     # 우리가 쓴 pak을 Divine이 읽을 수 있어야 한다(인터롭).
     src = tmp_path / "src"
@@ -70,6 +79,7 @@ def test_divine_reads_our_written_pak(tmp_path):
         assert (src / rel).read_bytes() == (out / rel).read_bytes()
 
 
+@_need_divine
 def test_loca_conversion_matches_divine(tmp_path):
     # 작은 .loca를 우리/Divine 양쪽으로 xml 변환 → 파싱 결과 동일.
     ents = [

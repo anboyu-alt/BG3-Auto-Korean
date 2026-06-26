@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 
 from bg3core.config import UserConfig
-from bg3core.divine import divine_extract, divine_repack, ensure_loca
+from bg3core.packio import extract_pak, repack_pak, ensure_loca
 from bg3core.mcm.loca_handles import mirror_loca_to_source_languages
 from bg3core.reviewer import Entry, ReviewFile, load_review_files, save_modified_xml
 from . import theme
@@ -25,14 +25,13 @@ from .widgets.description_panel import DescriptionPanel
 class _UnpackWorker(QThread):
     done = Signal(bool)
 
-    def __init__(self, divine_path: str, pak_path: Path, dest: Path, parent=None):
+    def __init__(self, pak_path: Path, dest: Path, parent=None):
         super().__init__(parent)
-        self._divine = divine_path
         self._pak = pak_path
         self._dest = dest
 
     def run(self):
-        ok = divine_extract(self._divine, self._pak, self._dest)
+        ok = extract_pak(self._pak, self._dest)
         self.done.emit(ok)
 
 
@@ -141,16 +140,13 @@ class ReviewerTab(QWidget):
         path_str = self._picker.get()
         if not path_str:
             return
-        if not self._cfg or not self._cfg.divine_exe_path:
-            QMessageBox.warning(self, t("common.warning"), "설정에서 Divine.exe 경로를 먼저 저장하세요.")
-            return
         self._pak_path = Path(path_str)
         if self._temp_dir and self._temp_dir.exists():
             shutil.rmtree(self._temp_dir, ignore_errors=True)
         self._temp_dir = Path(tempfile.mkdtemp(prefix="bg3_review_"))
         self._btn_open.setEnabled(False)
         self._unpack_worker = _UnpackWorker(
-            self._cfg.divine_exe_path, self._pak_path, self._temp_dir, parent=self
+            self._pak_path, self._temp_dir, parent=self
         )
         self._unpack_worker.done.connect(self._on_unpack_done)
         self._unpack_worker.start()
@@ -294,13 +290,13 @@ class ReviewerTab(QWidget):
             return
         for rf in modified:
             save_modified_xml(rf)
-        ensure_loca(self._cfg.divine_exe_path, self._temp_dir, force=True)
+        ensure_loca(self._temp_dir, force=True)
         mirror_loca_to_source_languages(
             self._temp_dir,
             target_folder=getattr(self._cfg, "target_language", "Korean"),
         )
         out_pak = self._pak_path.parent / f"{self._pak_path.stem}_Reviewed.pak"
-        if divine_repack(self._cfg.divine_exe_path, self._temp_dir, out_pak):
+        if repack_pak(self._temp_dir, out_pak):
             QMessageBox.information(self, t("common.info"), t("review.saved_ok", path=out_pak.name))
         else:
             QMessageBox.critical(self, t("common.error"), "PAK 리팩에 실패했습니다.")

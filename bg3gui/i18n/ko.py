@@ -107,11 +107,10 @@ STRINGS = {
     "common.no": "아니오",
     "wizard.title": "BG3 모드 번역기 — 처음 설정",
     "wizard.heading": "환영합니다! 처음 설정을 진행할게요.",
-    "wizard.intro": "아래 항목만 한 번 채우면 됩니다. Divine.exe와 게임 폴더는 보통 자동으로 감지되니, 그대로 시작하기를 눌러도 됩니다.",
+    "wizard.intro": "아래 항목만 한 번 채우면 됩니다. 게임 폴더는 보통 자동으로 감지되니, 그대로 시작하기를 눌러도 됩니다.",
     "wizard.step_api": "1. Gemini API 키 (필수)",
     "wizard.api_hint": "aistudio.google.com에서 무료로 발급할 수 있습니다. 나중에 설정 탭에서 입력해도 됩니다.",
-    "wizard.step_divine": "2. Divine.exe (LSLib ExportTool)",
-    "wizard.step_bg3": "3. 발더스 게이트 3 설치 폴더 (선택)",
+    "wizard.step_bg3": "2. 발더스 게이트 3 설치 폴더 (선택)",
     "wizard.start": "시작하기",
     "wizard.later": "나중에 설정",
 }

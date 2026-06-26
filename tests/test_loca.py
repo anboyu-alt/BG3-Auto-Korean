@@ -1,5 +1,5 @@
 from pathlib import Path
-from bg3core.divine import plan_loca_generation
+from bg3core.packio import plan_loca_generation
 
 
 def _mk(p: Path, content: str = "x") -> None:

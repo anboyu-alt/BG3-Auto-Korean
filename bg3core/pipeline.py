@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .logger import CallbackLogger
 
 from .constants import INPUT_GLOB
-from .divine import check_divine_exe, divine_extract, convert_loca_to_xml, ensure_loca, divine_repack
+from .packio import extract_pak, convert_loca_to_xml, ensure_loca, repack_pak
 from .language import LanguageProfile, get_profile, is_already_translated, DEFAULT_PROFILE
 from .translate import (
     process_xml_file, load_translation_cache, save_translation_cache,
@@ -144,7 +144,6 @@ def translate_unpacked_mod(
 
 def process_pak_file(
     pak_path: Path,
-    divine_path: str,
     api_key: str,
     log_file: str,
     cache_file: str,
@@ -179,12 +178,12 @@ def process_pak_file(
     _log(f"  📤 Unpacking: {pak_path.name}")
     if on_progress:
         on_progress("unpack", 0, 1, pak_path.name, pak_name)
-    if not divine_extract(divine_path, pak_path, temp_dir):
+    if not extract_pak(pak_path, temp_dir):
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
-    loca_count = convert_loca_to_xml(divine_path, temp_dir, logger=logger)
+    loca_count = convert_loca_to_xml(temp_dir, logger=logger)
     if loca_count > 0:
         _log(f"  🔄 .loca → XML: {loca_count} files")
 
@@ -249,7 +248,7 @@ def process_pak_file(
 
     # BG3는 표준 구조 모드의 로컬라이제이션을 .loca 바이너리에서 읽는다.
     # 번역된 xml에서 각 언어 .loca를 생성해 포함시킨다(없는 것만 — 멱등).
-    generated = ensure_loca(divine_path, temp_dir, logger=logger)
+    generated = ensure_loca(temp_dir, logger=logger)
     if generated > 0:
         _log(f"  🧩 Generated .loca: {generated}")
 
@@ -267,7 +266,7 @@ def process_pak_file(
     _log(f"  📥 Repacking → {output_pak.name}")
     if on_progress:
         on_progress("repack", 0, 1, output_pak.name, pak_name)
-    if not divine_repack(divine_path, temp_dir, output_pak):
+    if not repack_pak(temp_dir, output_pak):
         shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
@@ -280,7 +279,6 @@ def process_pak_file(
 
 def run_batch(
     api_key: str,
-    divine_path: str,
     target_pak: str,
     log_file: str,
     cache_file: str,
@@ -301,8 +299,6 @@ def run_batch(
         else:
             print(text)
     target_profile = get_profile(target_language)
-    if not check_divine_exe(divine_path):
-        return
 
     load_translation_cache(cache_file)
 
@@ -312,7 +308,7 @@ def run_batch(
     if use_official_glossary:
         try:
             official = extract_official_glossary(
-                divine_path, bg3_install_path, target_profile.folder_name,
+                bg3_install_path, target_profile.folder_name,
                 logger=logger,
             )
             if official is None:
@@ -327,7 +323,7 @@ def run_batch(
         _log(f"\n[Single pak] {target.name}")
         _log("=" * 50)
         process_pak_file(
-            target, divine_path, api_key, log_file, cache_file,
+            target, api_key, log_file, cache_file,
             work_dir=work_dir,
             skip_if_target_exists=skip_if_target_exists,
             target_profile=target_profile,
@@ -358,7 +354,7 @@ def run_batch(
                 raise InterruptedError("user_cancelled")
             _log(f"\n[{i}/{len(pak_files)}] 📦 {pak_file.name}")
             result = process_pak_file(
-                pak_file, divine_path, api_key, log_file, cache_file,
+                pak_file, api_key, log_file, cache_file,
                 work_dir=work_dir,
                 skip_if_target_exists=skip_if_target_exists,
                 target_profile=target_profile,

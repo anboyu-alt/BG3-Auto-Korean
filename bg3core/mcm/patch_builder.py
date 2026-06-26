@@ -166,7 +166,7 @@ def build_patch_mod_dir(
     target_profile: LanguageProfile = DEFAULT_PROFILE,
     logger: Optional["CallbackLogger"] = None,
 ) -> Optional[dict]:
-    """번역 패치 모드 디렉토리를 output_dir에 생성. divine_repack 대상 디렉토리 경로 반환.
+    """번역 패치 모드 디렉토리를 output_dir에 생성. repack_pak 대상 디렉토리 경로 반환.
 
     target_profile.folder_name 폴더의 *.xml을 패치 모드 안의 해당 언어/, English/, French/ 등
     모든 언어 폴더에 복사한다 (같은 contentuid를 모든 언어에 등록).

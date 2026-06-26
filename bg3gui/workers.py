@@ -58,7 +58,6 @@ class TranslationWorker(QThread):
         try:
             run_batch(
                 api_key=cfg.api_key,
-                divine_path=cfg.divine_exe_path,
                 target_pak=self.target_path,
                 log_file=log_file,
                 cache_file=cache_file,

@@ -12,7 +12,6 @@ from .constants import MODELS_TO_TRY
 @dataclass
 class UserConfig:
     api_key: str = ""
-    divine_exe_path: str = ""
     model_preference: List[str] = field(default_factory=lambda: list(MODELS_TO_TRY))
     cache_path: str = ""
     log_dir: str = ""
@@ -63,13 +62,10 @@ def load_config() -> UserConfig:
 def _first_run_defaults() -> UserConfig:
     """설정 파일이 없을 때(첫 실행) 똑똑한 기본값을 제안한다.
 
-    BG3 설치 경로와 Divine.exe를 자동 탐지하고, 게임 설정 언어로 번역 대상 언어와
-    앱 UI 언어를 맞춘다. 사용자가 저장하면 이 값이 config.json에 기록된다.
+    BG3 설치 경로를 자동 탐지하고, 게임 설정 언어로 번역 대상 언어와 앱 UI 언어를
+    맞춘다. 사용자가 저장하면 이 값이 config.json에 기록된다.
     """
     cfg = UserConfig()
-    divine = auto_detect_divine()
-    if divine:
-        cfg.divine_exe_path = divine
     bg3 = auto_detect_bg3()
     if bg3:
         cfg.bg3_install_path = bg3
@@ -89,22 +85,6 @@ def save_config(cfg: UserConfig) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg.__dict__, f, ensure_ascii=False, indent=2)
-
-
-def auto_detect_divine() -> Optional[str]:
-    patterns = [
-        r"C:\ExportTool-*\Packed\Tools\Divine.exe",
-        r"C:\Users\*\Downloads\ExportTool-*\Packed\Tools\Divine.exe",
-        r"D:\ExportTool-*\Packed\Tools\Divine.exe",
-        r"E:\ExportTool-*\Packed\Tools\Divine.exe",
-        r"F:\ExportTool-*\Packed\Tools\Divine.exe",
-        r"C:\Program Files\ExportTool-*\Packed\Tools\Divine.exe",
-    ]
-    for pattern in patterns:
-        matches = glob.glob(pattern)
-        if matches:
-            return str(sorted(matches)[-1])
-    return None
 
 
 _BG3_REL = os.path.join("steamapps", "common", "Baldurs Gate 3")

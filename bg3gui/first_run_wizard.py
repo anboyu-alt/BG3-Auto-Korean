@@ -15,8 +15,8 @@ from .widgets.path_picker import PathPicker
 class FirstRunWizard(QDialog):
     """첫 실행 안내 위저드.
 
-    설정 파일이 없을 때 한 번 떠서 API 키·Divine.exe·BG3 설치 폴더를 한자리에서
-    안내·입력받는다. Divine/BG3는 전달된 config(자동 감지값)로 prefill한다.
+    설정 파일이 없을 때 한 번 떠서 API 키·BG3 설치 폴더를 한자리에서 안내·입력받는다.
+    BG3는 전달된 config(자동 감지값)로 prefill한다.
     여기서 다루지 않는 나머지 설정(언어 등)은 그대로 보존한다.
     """
 
@@ -57,16 +57,7 @@ class FirstRunWizard(QDialog):
         api_hint.setStyleSheet(f"color:{theme.TEXT_MUTED};font-size:11px;background:transparent;")
         layout.addWidget(api_hint)
 
-        # 2. Divine.exe (자동 감지 prefill)
-        layout.addWidget(self._step_label(t("wizard.step_divine")))
-        self._divine_picker = PathPicker(
-            mode="file",
-            filetypes=[("Divine.exe", "Divine.exe"), ("Executable", "*.exe")],
-        )
-        self._divine_picker.set(self._cfg.divine_exe_path)
-        layout.addWidget(self._divine_picker)
-
-        # 3. BG3 설치 폴더 (자동 감지 prefill, 선택)
+        # 2. BG3 설치 폴더 (자동 감지 prefill, 선택)
         layout.addWidget(self._step_label(t("wizard.step_bg3")))
         self._bg3_picker = PathPicker(mode="dir")
         self._bg3_picker.set(self._cfg.bg3_install_path)
@@ -94,6 +85,5 @@ class FirstRunWizard(QDialog):
     def result_config(self) -> UserConfig:
         out = copy.deepcopy(self._cfg)
         out.api_key = self._api_edit.text().strip()
-        out.divine_exe_path = self._divine_picker.get()
         out.bg3_install_path = self._bg3_picker.get()
         return out

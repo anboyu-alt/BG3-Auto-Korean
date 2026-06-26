@@ -70,14 +70,6 @@ class SettingsTab(QWidget):
         api_row.addWidget(self._btn_show)
         layout.addLayout(api_row)
 
-        # ── Divine.exe ──
-        layout.addWidget(_row_label(t("settings.divine_path")))
-        self._divine_picker = PathPicker(
-            mode="file",
-            filetypes=[("Divine.exe", "Divine.exe"), ("Executable", "*.exe")],
-        )
-        layout.addWidget(self._divine_picker)
-
         # ── BG3 설치 폴더 ──
         layout.addWidget(_row_label(t("settings.bg3_path")))
         self._bg3_picker = PathPicker(mode="dir")
@@ -139,7 +131,6 @@ class SettingsTab(QWidget):
     def _build_description_panel(self) -> DescriptionPanel:
         items = [
             (t("settings.api_key"), t("desc.settings.api_key")),
-            (t("settings.divine_path"), t("desc.settings.divine")),
             (t("settings.bg3_path"), t("desc.settings.bg3")),
             (t("settings.ui_scale"), t("desc.settings.ui_scale")),
             (t("settings.app_language"), t("desc.settings.app_lang")),
@@ -161,7 +152,6 @@ class SettingsTab(QWidget):
     def load_config(self, cfg: UserConfig) -> None:
         self._cfg = cfg
         self._api_edit.setText(cfg.api_key)
-        self._divine_picker.set(cfg.divine_exe_path)
         # 비어 있으면 자동 감지값으로 채워 보여준다(저장 전엔 미저장).
         self._bg3_picker.set(cfg.bg3_install_path or (auto_detect_bg3() or ""))
         self._scale_combo.setCurrentText(cfg.ui_scale)
@@ -176,7 +166,6 @@ class SettingsTab(QWidget):
     def _build_config(self) -> UserConfig:
         cfg = UserConfig()
         cfg.api_key = self._api_edit.text().strip()
-        cfg.divine_exe_path = self._divine_picker.get()
         cfg.bg3_install_path = self._bg3_picker.get()
         cfg.ui_scale = self._scale_combo.currentText()
         cfg.app_language = _APP_LANG_CODE.get(

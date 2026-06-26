@@ -1,6 +1,6 @@
 """④ 공식 언어팩 참조 글로서리.
 
-BG3 설치 폴더의 공식 언어팩(English.pak + 대상언어 팩)을 Divine으로 추출하여
+BG3 설치 폴더의 공식 언어팩(English.pak + 대상언어 팩)을 네이티브 pak/loca로 추출하여
 contentuid로 조인 → "공식 영어 → 공식 대상언어" 사전을 만든다. 디스크에 캐시하며
 소스 .pak의 크기/수정시각이 바뀌면 자동 재생성한다.
 
@@ -192,24 +192,23 @@ def get_cache_path(target_folder_name: str) -> Path:
     )
 
 
-# ── IO 오케스트레이션 (Divine 호출) ─────────────────────────
+# ── IO 오케스트레이션 (네이티브 pak/loca) ───────────────────
 def _extract_dict_from_paks(
-    divine_path: str,
     paks: List[Path],
     logger: Optional["CallbackLogger"],
 ) -> Dict[str, str]:
     """pak들을 추출·변환·파싱해 {contentuid: 텍스트} 병합 사전을 만든다."""
-    from . import divine as _divine
+    from . import packio as _packio
 
     merged: Dict[str, str] = {}
     for pak in paks:
         with tempfile.TemporaryDirectory(prefix="bg3_official_") as tmp:
             dest = Path(tmp)
-            if not _divine.divine_extract(divine_path, pak, dest):
+            if not _packio.extract_pak(pak, dest):
                 if logger:
                     logger.warning(f"    ⚠️ Official pack extract failed: {pak.name}")
                 continue
-            _divine.convert_loca_to_xml(divine_path, dest, logger=logger)
+            _packio.convert_loca_to_xml(dest, logger=logger)
             for xml in dest.rglob("*.loca.xml"):
                 try:
                     text = xml.read_text(encoding="utf-8")
@@ -220,7 +219,6 @@ def _extract_dict_from_paks(
 
 
 def extract_official_glossary(
-    divine_path: str,
     bg3_install_path: str,
     target_folder_name: str,
     logger: Optional["CallbackLogger"] = None,
@@ -228,10 +226,8 @@ def extract_official_glossary(
 ) -> Optional[Dict[str, str]]:
     """공식 영어→대상 사전을 만든다(또는 캐시에서 로드). 사용 불가 시 None.
 
-    None 조건: BG3 경로/Divine 미설정, 공식 팩 미발견 → 기능 비활성(파이프라인은 그냥 진행).
+    None 조건: BG3 경로 미설정, 공식 팩 미발견 → 기능 비활성(파이프라인은 그냥 진행).
     """
-    if not divine_path or not os.path.isfile(divine_path):
-        return None
     english_paks, target_paks = find_language_paks(bg3_install_path, target_folder_name)
     if not english_paks or not target_paks:
         return None
@@ -251,8 +247,8 @@ def extract_official_glossary(
         logger.info(
             f"  Building official glossary from game packs ({target_folder_name})..."
         )
-    english_map = _extract_dict_from_paks(divine_path, english_paks, logger)
-    target_map = _extract_dict_from_paks(divine_path, target_paks, logger)
+    english_map = _extract_dict_from_paks(english_paks, logger)
+    target_map = _extract_dict_from_paks(target_paks, logger)
     official = build_official_dict(english_map, target_map)
     if logger:
         logger.info(f"  Official glossary: {len(official)} terms built")

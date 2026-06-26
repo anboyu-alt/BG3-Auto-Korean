@@ -29,6 +29,7 @@ a = Analysis(
         "PySide6.QtGui",
         "bg3gui.i18n.ko",
         "bg3gui.i18n.en",
+        "lz4", "lz4.block",
     ],
     hookspath=[],
     hooksconfig={},

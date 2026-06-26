@@ -53,6 +53,7 @@ if ($Only -eq "all" -or $Only -eq "zip") {
         --include-package=bg3gui `
         --include-package=bg3core `
         --include-package=bg3gui.i18n `
+        --include-package=lz4 `
         --output-dir=$outDir `
         $Entry
 

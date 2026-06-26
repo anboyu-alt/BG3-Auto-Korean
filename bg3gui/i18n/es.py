@@ -3,7 +3,7 @@
 # Regenerate: python tools/gen_ui_translations.py es
 STRINGS = {
     "app.title": "TRADUCTOR DE MODS DE BG3",
-    "app.subtitle": "Con tecnología de Gemini AI · v6.0",
+    "app.subtitle": "Con tecnología de Gemini AI · v{version}",
     "menu.settings": "Ajustes",
     "menu.translate": "Traducir",
     "menu.review": "Revisar",

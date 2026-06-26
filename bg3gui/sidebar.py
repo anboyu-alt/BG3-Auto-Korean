@@ -2,6 +2,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel
 from PySide6.QtCore import Signal, Qt
+from bg3core.constants import __version__
 from . import theme
 from .i18n import t
 
@@ -74,7 +75,7 @@ class NavigationSidebar(QWidget):
 
         layout.addStretch()
 
-        ver = QLabel("v6.0")
+        ver = QLabel(f"v{__version__}")
         ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ver.setStyleSheet("color:#3a3a3a;font-size:9px;background:transparent;")
         layout.addWidget(ver)

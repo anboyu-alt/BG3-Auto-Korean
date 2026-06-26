@@ -1,7 +1,7 @@
 # bg3gui/i18n/ko.py
 STRINGS = {
     "app.title": "BG3 MOD TRANSLATOR",
-    "app.subtitle": "Powered by Gemini AI · v6.0",
+    "app.subtitle": "Powered by Gemini AI · v{version}",
     "menu.settings": "설정",
     "menu.translate": "번역",
     "menu.review": "검수",

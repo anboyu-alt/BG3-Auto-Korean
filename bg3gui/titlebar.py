@@ -2,6 +2,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QPoint
+from bg3core.constants import __version__
 from . import theme
 from .i18n import t
 
@@ -45,7 +46,7 @@ class TitleBar(QWidget):
         self._lbl_title.setStyleSheet(
             f"color:{theme.GOLD};font-weight:bold;font-size:13px;letter-spacing:1.5px;"
         )
-        self._lbl_subtitle = QLabel(t("app.subtitle"))
+        self._lbl_subtitle = QLabel(t("app.subtitle", version=__version__))
         self._lbl_subtitle.setStyleSheet("color:#7a6a3a;font-size:10px;")
 
         vcol.addWidget(self._lbl_title)
@@ -81,7 +82,7 @@ class TitleBar(QWidget):
 
     def retranslate(self) -> None:
         self._lbl_title.setText(t("app.title"))
-        self._lbl_subtitle.setText(t("app.subtitle"))
+        self._lbl_subtitle.setText(t("app.subtitle", version=__version__))
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

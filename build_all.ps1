@@ -1,20 +1,25 @@
-# build_all.ps1 — BG3 Mod Translator 듀얼 빌드 (v6.0)
+# build_all.ps1 — BG3 Mod Translator 빌드
 #
-# 배포물 2종을 한 번에 생성한다:
-#   1) GitHub용  : PyInstaller 단일 EXE   → dist\BG3_ModTranslator.exe
-#   2) Nexus용   : Nuitka standalone 폴더 → BG3_ModTranslator_v<버전>.zip
+# 기본 배포물(GitHub·Nexus 공용): Nuitka standalone 폴더(0/71)를 Inno Setup으로 감싼
+#   단일 설치 파일  → BG3_ModTranslator_v<버전>_setup.exe
+# 보조: 같은 폴더의 zip(무설치 사용자용)  → BG3_ModTranslator_v<버전>.zip
 #
-# 사전 준비(가상환경 권장):
-#   pip install pyinstaller nuitka
-#   pip install -r requirements.txt   (PySide6 등 런타임 의존성)
+# 설치 파일은 onefile 패커와 달리 "신뢰 런타임 폴더 + 표준 인스톨러 포맷"이라 코드 서명
+# 없이도 오탐이 거의 없다(Electron 앱이 NSIS로 미탐지를 얻는 것과 같은 원리).
+#
+# 사전 준비:
+#   pip install nuitka            (+ pyinstaller — -Only exe 쓸 때만)
+#   pip install -r requirements-gui.txt   (PySide6·lz4 등 런타임 의존성)
+#   Inno Setup 6  https://jrsoftware.org/isdl.php   (설치 파일 생성에 필요)
 #
 # 사용:
-#   pwsh -File build_all.ps1            # 둘 다 빌드
-#   pwsh -File build_all.ps1 -Only exe  # PyInstaller만
-#   pwsh -File build_all.ps1 -Only zip  # Nuitka(zip)만
+#   pwsh -File build_all.ps1                 # 폴더 → 설치파일 + zip
+#   pwsh -File build_all.ps1 -Only installer # 설치파일만
+#   pwsh -File build_all.ps1 -Only zip       # zip만
+#   pwsh -File build_all.ps1 -Only exe       # (레거시) PyInstaller 단일 EXE
 
 param(
-    [ValidateSet("all", "exe", "zip")]
+    [ValidateSet("all", "installer", "zip", "exe")]
     [string]$Only = "all"
 )
 
@@ -30,45 +35,75 @@ $Version = (python -c "import bg3core.constants as c; print(c.__version__)").Tri
 if (-not $Version) { throw "버전을 읽지 못했습니다 (bg3core/constants.py __version__)." }
 Write-Host "==> BG3 Mod Translator v$Version 빌드 시작 (모드: $Only)" -ForegroundColor Cyan
 
-# ── 1) PyInstaller 단일 EXE (GitHub용) ─────────────────────────
-if ($Only -eq "all" -or $Only -eq "exe") {
-    Write-Host "`n[1/2] PyInstaller 단일 EXE 빌드..." -ForegroundColor Yellow
+function Find-ISCC {
+    foreach ($p in @(
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+        "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+    )) { if (Test-Path $p) { return $p } }
+    $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
+}
+
+# ── (레거시) PyInstaller 단일 EXE ──────────────────────────────
+if ($Only -eq "exe") {
+    Write-Host "`n[PyInstaller] 단일 EXE 빌드..." -ForegroundColor Yellow
     python -m PyInstaller --noconfirm --clean $Spec
     $exe = Join-Path "dist" "$AppName.exe"
     if (-not (Test-Path $exe)) { throw "PyInstaller 산출물이 없습니다: $exe" }
-    Write-Host "  ✅ $exe" -ForegroundColor Green
+    Write-Host "  ✅ $exe  (오탐 가능 — 가급적 설치파일/zip 사용 권장)" -ForegroundColor Green
+    return
 }
 
-# ── 2) Nuitka standalone 폴더 → zip (Nexus용) ──────────────────
+# ── Nuitka standalone 폴더 (설치파일·zip 공통 베이스) ──────────
+$staged = Join-Path "nuitka_build" $AppName
+Write-Host "`n[1] Nuitka standalone 폴더 빌드..." -ForegroundColor Yellow
+$outDir = "nuitka_build"
+if (Test-Path $outDir) { Remove-Item -Recurse -Force $outDir }
+
+python -m nuitka `
+    --standalone `
+    --assume-yes-for-downloads `
+    --enable-plugin=pyside6 `
+    --windows-console-mode=disable `
+    --include-package=bg3gui `
+    --include-package=bg3core `
+    --include-package=bg3gui.i18n `
+    --include-package=lz4 `
+    --output-dir=$outDir `
+    $Entry
+
+# Nuitka standalone 출력: <outDir>\bg3_mod_translator.dist\
+$distSrc = Join-Path $outDir "bg3_mod_translator.dist"
+if (-not (Test-Path $distSrc)) { throw "Nuitka 산출물이 없습니다: $distSrc" }
+
+# 폴더·실행파일 이름 정리 → nuitka_build\BG3_ModTranslator\BG3_ModTranslator.exe
+if (Test-Path $staged) { Remove-Item -Recurse -Force $staged }
+Rename-Item -Path $distSrc -NewName $AppName
+$exeIn = Join-Path $staged "bg3_mod_translator.exe"
+if (Test-Path $exeIn) { Rename-Item -Path $exeIn -NewName "$AppName.exe" }
+Write-Host "  ✅ $staged" -ForegroundColor Green
+
+# ── 설치 파일 (Inno Setup) — GitHub·Nexus 공용 ────────────────
+if ($Only -eq "all" -or $Only -eq "installer") {
+    Write-Host "`n[2] Inno Setup 설치 파일 생성..." -ForegroundColor Yellow
+    $iscc = Find-ISCC
+    if (-not $iscc) {
+        Write-Warning "Inno Setup(ISCC.exe)을 찾지 못했습니다. 설치 파일을 건너뜁니다."
+        Write-Warning "  설치: https://jrsoftware.org/isdl.php  (설치 후 다시 실행)"
+    }
+    else {
+        & $iscc "/DMyAppVersion=$Version" "/DSourceDir=$staged" "installer.iss"
+        if ($LASTEXITCODE -ne 0) { throw "Inno Setup 컴파일 실패 (ISCC exit $LASTEXITCODE)." }
+        $setup = "BG3_ModTranslator_v${Version}_setup.exe"
+        if (-not (Test-Path $setup)) { throw "설치 파일 산출물이 없습니다: $setup" }
+        Write-Host "  ✅ $setup" -ForegroundColor Green
+    }
+}
+
+# ── zip (무설치 사용자용 보조) ────────────────────────────────
 if ($Only -eq "all" -or $Only -eq "zip") {
-    Write-Host "`n[2/2] Nuitka standalone 빌드..." -ForegroundColor Yellow
-    $outDir = "nuitka_build"
-    if (Test-Path $outDir) { Remove-Item -Recurse -Force $outDir }
-
-    python -m nuitka `
-        --standalone `
-        --assume-yes-for-downloads `
-        --enable-plugin=pyside6 `
-        --windows-console-mode=disable `
-        --include-package=bg3gui `
-        --include-package=bg3core `
-        --include-package=bg3gui.i18n `
-        --include-package=lz4 `
-        --output-dir=$outDir `
-        $Entry
-
-    # Nuitka standalone 출력: <outDir>\bg3_mod_translator.dist\
-    $distSrc = Join-Path $outDir "bg3_mod_translator.dist"
-    if (-not (Test-Path $distSrc)) { throw "Nuitka 산출물이 없습니다: $distSrc" }
-
-    # 폴더·실행파일 이름 정리
-    $staged = Join-Path $outDir $AppName
-    if (Test-Path $staged) { Remove-Item -Recurse -Force $staged }
-    Rename-Item -Path $distSrc -NewName $AppName
-    $exeIn = Join-Path $staged "bg3_mod_translator.exe"
-    if (Test-Path $exeIn) { Rename-Item -Path $exeIn -NewName "$AppName.exe" }
-
-    # zip 패킹
+    Write-Host "`n[3] zip 패킹..." -ForegroundColor Yellow
     $zip = "${AppName}_v$Version.zip"
     if (Test-Path $zip) { Remove-Item -Force $zip }
     Compress-Archive -Path $staged -DestinationPath $zip
@@ -76,5 +111,5 @@ if ($Only -eq "all" -or $Only -eq "zip") {
 }
 
 Write-Host "`n==> 완료. 산출물:" -ForegroundColor Cyan
-if ($Only -ne "zip") { Write-Host "  • dist\$AppName.exe  (GitHub Release 업로드)" }
-if ($Only -ne "exe") { Write-Host "  • ${AppName}_v$Version.zip  (Nexus 업로드)" }
+if ($Only -eq "all" -or $Only -eq "installer") { Write-Host "  • BG3_ModTranslator_v${Version}_setup.exe  (GitHub·Nexus 공용, 권장)" }
+if ($Only -eq "all" -or $Only -eq "zip") { Write-Host "  • ${AppName}_v$Version.zip  (무설치 보조)" }

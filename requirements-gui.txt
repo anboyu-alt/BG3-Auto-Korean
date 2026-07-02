@@ -1,4 +1,3 @@
-customtkinter>=5.2.0
-pillow>=10.0.0
-defusedxml>=0.7.1
-lz4>=4.0.0  # v7.0: 네이티브 LSPK(.pak) LZ4 압축/해제 — Divine.exe 대체
+# BG3 Mod Translator — 런타임 의존성 (v7.0)
+PySide6>=6.6.0        # GUI (Qt)
+lz4>=4.0.0            # 네이티브 LSPK(.pak) LZ4 압축/해제 — Divine.exe 대체

@@ -18,7 +18,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from .logger import CallbackLogger
@@ -91,18 +91,25 @@ def lookup_official(text: str, official: Dict[str, str]) -> Optional[str]:
     return official.get(text.strip())
 
 
-def build_official_prompt_section(text: str, official: Dict[str, str]) -> str:
+def build_official_prompt_section(
+    text: str,
+    official: Dict[str, str],
+    exclude: Optional[Set[str]] = None,
+) -> str:
     """text 본문에 등장하는 공식 용어만 골라 프롬프트 섹션 문자열을 만든다.
 
     매칭이 없으면 빈 문자열. (전체 사전을 주입하면 수만 줄이 되므로 본문 매칭만.)
+    exclude: 소문자 영어 키 집합. 사용자 용어집 등 더 우선하는 규칙이 있는 용어는
+    여기에 넣어 공식 표기가 반대 지시로 주입되지 않게 한다.
     """
     if not official:
         return ""
+    exclude = exclude or set()
     matched = []
     seen = set()
     # 긴 용어 우선(부분 매칭 우선순위) — 같은 표기 중복 방지.
     for src in sorted(official, key=len, reverse=True):
-        if src in seen:
+        if src in seen or src.lower() in exclude:
             continue
         if re.search(r"\b" + re.escape(src) + r"\b", text):
             matched.append(src)

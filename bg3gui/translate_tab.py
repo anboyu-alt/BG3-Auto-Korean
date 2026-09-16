@@ -201,7 +201,7 @@ class TranslateTab(QWidget):
         )
         self._worker.log_line.connect(self._log.append)
         self._worker.progress.connect(lambda c, total, _: self._progress.update(c, total))
-        self._worker.finished.connect(self._on_done)
+        self._worker.done.connect(self._on_done)
         self._worker.error.connect(self._on_error)
         self._worker.cancelled.connect(self._on_cancelled)
         self._worker.start()

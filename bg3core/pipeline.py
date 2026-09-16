@@ -178,7 +178,7 @@ def process_pak_file(
     _log(f"  📤 Unpacking: {pak_path.name}")
     if on_progress:
         on_progress("unpack", 0, 1, pak_path.name, pak_name)
-    if not extract_pak(pak_path, temp_dir):
+    if not extract_pak(pak_path, temp_dir, logger=logger):
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         return False
@@ -266,7 +266,7 @@ def process_pak_file(
     _log(f"  📥 Repacking → {output_pak.name}")
     if on_progress:
         on_progress("repack", 0, 1, output_pak.name, pak_name)
-    if not repack_pak(temp_dir, output_pak):
+    if not repack_pak(temp_dir, output_pak, logger=logger):
         shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
@@ -322,7 +322,7 @@ def run_batch(
     if target.is_file() and target.suffix.lower() == ".pak":
         _log(f"\n[Single pak] {target.name}")
         _log("=" * 50)
-        process_pak_file(
+        result = process_pak_file(
             target, api_key, log_file, cache_file,
             work_dir=work_dir,
             skip_if_target_exists=skip_if_target_exists,
@@ -334,6 +334,16 @@ def run_batch(
             logger=logger,
             official=official,
         )
+        # 배치 모드의 [Summary]와 대칭으로 단일 pak도 결과 줄을 남긴다. 이전엔 실패해도
+        # 아무 줄 없이 끝나 GUI가 '번역 완료!'만 보여줬다(제보: 금방 완료라고 뜸).
+        if not result:
+            out = target.parent / f"{target.stem}_{target_profile.folder_name}.pak"
+            if out.exists():
+                _log(f"  ⏩ Skipped: {target.name} ({out.name} already exists)")
+            elif logger:
+                logger.error(f"  ❌ Failed: {target.name} — see the messages above")
+            else:
+                print(f"  ❌ Failed: {target.name}")
 
     elif target.is_dir():
         pak_files = sorted(target.glob("*.pak"))

@@ -35,13 +35,14 @@ class LogView(QWidget):
         cursor = self._text.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         fmt = QTextCharFormat()
-        if message.startswith("✅"):
+        head = message.lstrip()  # 파이프라인 로그는 '  ❌ ...'처럼 들여쓰기가 있다
+        if head.startswith("✅"):
             fmt.setForeground(QColor(theme.SUCCESS))
-        elif message.startswith("▶"):
+        elif head.startswith("▶"):
             fmt.setForeground(QColor(theme.GOLD))
-        elif message.startswith("❌") or message.startswith("⚠"):
+        elif head.startswith("❌") or head.startswith("⚠"):
             fmt.setForeground(QColor("#cc4444"))
-        elif message.startswith("⏳"):
+        elif head.startswith("⏳"):
             fmt.setForeground(QColor(theme.TEXT_MUTED))
         else:
             fmt.setForeground(QColor(theme.TEXT_PRIMARY))

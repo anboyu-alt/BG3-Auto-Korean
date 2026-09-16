@@ -11,12 +11,21 @@ from bg3core.config import UserConfig, get_default_cache_path, get_default_log_d
 from bg3core.pipeline import run_batch
 from bg3core.translate import set_active_models
 from bg3core.logger import CallbackLogger
+from bg3core.events import LogEvent
+
+
+def log_event_text(event: LogEvent) -> str:
+    """로그 창에 표시할 본문. LogEvent의 필드는 `text`다(예전 코드가 `message`를
+    찾다가 실패해 dataclass repr 전체가 로그에 찍히던 버그의 수정)."""
+    return event.text
 
 
 class TranslationWorker(QThread):
     log_line = Signal(str)
     progress = Signal(int, int, str)
-    finished = Signal()
+    # QThread 내장 finished와 이름이 겹치면 스레드 종료 때마다 슬롯이 한 번 더 불려
+    # 오류·중단 뒤에도 '번역 완료!'가 찍힌다. 별도 이름을 쓴다.
+    done = Signal()
     error = Signal(str)
     cancelled = Signal()
 
@@ -43,9 +52,7 @@ class TranslationWorker(QThread):
         work_dir = Path(cache_file).parent
 
         logger = CallbackLogger(
-            on_log=lambda e: self.log_line.emit(
-                e.message if hasattr(e, "message") else str(e)
-            ),
+            on_log=lambda e: self.log_line.emit(log_event_text(e)),
             on_progress=lambda e: None,
         )
 
@@ -72,7 +79,7 @@ class TranslationWorker(QThread):
                 bg3_install_path=getattr(cfg, "bg3_install_path", ""),
                 use_official_glossary=getattr(cfg, "use_official_glossary", False),
             )
-            self.finished.emit()
+            self.done.emit()
         except InterruptedError:
             self.cancelled.emit()
         except Exception:

@@ -409,6 +409,13 @@ However, items that could break game functionality if auto-translated — such a
 
 ## Update History
 
+### v7.1
+- **Legacy PAK (V15/V16) support**: mods packed with pre-2023 LSLib now unpack, and the stale duplicate entry those writers leave behind is ignored. (Fixes v7.0 "PAK unpack failed" / instant "Translation complete" with no output.)
+- **Fixed unpack failure on PAKs containing zero-byte files**: Toolkit-built mods often ship empty Stats files (e.g. `Spell_Target.txt`) with a compression flag; this aborted the whole unpack so no translated PAK was produced. (Thor, monk class mods, etc.)
+- **Failure reasons are now shown**: unpack/repack errors appear in the translation log (red) and in the reviewer tab's error dialog. Single-PAK runs also log a "❌ Failed" summary line.
+- **Custom glossary takes top priority**: your glossary is applied before the translation cache and the official language pack, and official wording for terms you defined is no longer injected into the AI prompt.
+- **Log display fixes**: log lines no longer print as `LogEvent(level=...)`, and "Translation complete!" no longer appears twice (or after an error).
+
 ### v7.0
 - **Removed the Divine.exe (LSLib) dependency entirely**: `.pak`/`.loca` are now handled natively in Python — no external tools or .NET runtime needed.
 - **Official language-pack exact-match glossary auto-applied**: exact matches reuse the official translation with no API calls; default ON when the game is detected.

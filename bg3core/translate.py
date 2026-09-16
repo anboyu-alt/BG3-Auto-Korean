@@ -14,7 +14,10 @@ from .constants import (
     CONTENT_BLOCK_RE, CONTENT_INNER_RE, ESCAPED_TAGS,
     MODELS_TO_TRY, BASE_URL, TIMEOUT_SEC, DOWNSHIFT_TOKEN_STEPS,
 )
-from .glossary import GLOSSARY, try_glossary_only, build_glossary_prompt_section, apply_glossary
+from .glossary import (
+    GLOSSARY, try_glossary_only, build_glossary_prompt_section, apply_glossary,
+    get_effective_glossary,
+)
 from .official_glossary import lookup_official, build_official_prompt_section
 from .language import (
     LanguageProfile, DEFAULT_PROFILE, prompt_language_name, script_ratio,
@@ -440,17 +443,20 @@ def process_xml_file(
     stats_cache = stats_skip = stats_glossary = stats_official = 0
     need_api: List[Tuple[str, int]] = []
 
+    # 우선순위: skip → 용어집(기본+내 용어집) → 번역 캐시 → 공식 사전 → API.
+    # 용어집이 캐시보다 앞이어야 사용자가 용어를 바꾼 뒤 재번역할 때 이전 실행의
+    # 캐시 값이 아니라 새 용어가 반영된다(제보: 내 용어집이 적용되지 않음).
     for text, idx in unique_list:
         if should_skip_translation(text, target_profile):
             translated_map[idx] = text
             stats_skip += 1
-        elif (cached := cache_get(text, target_profile)) is not None:
-            translated_map[idx] = escape_unescaped_angle_brackets(cached)
-            stats_cache += 1
         elif use_glossary and (hit := try_glossary_only(text)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(hit)
             cache_put(text, hit, target_profile)
             stats_glossary += 1
+        elif (cached := cache_get(text, target_profile)) is not None:
+            translated_map[idx] = escape_unescaped_angle_brackets(cached)
+            stats_cache += 1
         elif official and (off := lookup_official(text, official)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(off)
             cache_put(text, off, target_profile)
@@ -467,6 +473,13 @@ def process_xml_file(
         for text, idx in need_api:
             protected, mapping = protect_escaped_tags(text)
             protected_texts.append((idx, protected, mapping, text))
+
+        # 용어집(시스템 프롬프트)에 이미 규칙이 있는 용어는 공식 사전 섹션에서 제외해
+        # 서로 반대되는 지시(예: Bonus Action → 보조 행동 vs 추가 행동)가 한 요청에
+        # 같이 들어가지 않게 한다. 내 용어집이 공식 표기보다 우선한다.
+        official_exclude = (
+            {k.lower() for k in get_effective_glossary()} if use_glossary else set()
+        )
 
         for max_tokens in DOWNSHIFT_TOKEN_STEPS:
             remaining = [x for x in protected_texts if x[0] not in translated_map]
@@ -495,7 +508,9 @@ def process_xml_file(
                 extra_context = ""
                 if official:
                     chunk_src = "\n".join(orig for _, _, _, orig in chunk)
-                    extra_context = build_official_prompt_section(chunk_src, official)
+                    extra_context = build_official_prompt_section(
+                        chunk_src, official, exclude=official_exclude,
+                    )
 
                 raw, status = call_gemini(
                     "\n".join(lines), filename, cidx, len(chunks), api_key,
@@ -608,18 +623,19 @@ def translate_text_list(
     need_api: List[Tuple[str, int]] = []
     stats_cache = stats_skip = stats_glossary = 0
 
+    # process_xml_file과 같은 우선순위: 용어집이 캐시보다 앞.
     for text, idx in sorted(unique_texts.items(), key=lambda x: x[1]):
         if should_skip_translation(text, target_profile):
             stats_skip += 1
-            continue
-        if (cached := cache_get(text, target_profile)) is not None:
-            translated_map[idx] = escape_unescaped_angle_brackets(cached)
-            stats_cache += 1
             continue
         if use_glossary and (hit := try_glossary_only(text)) is not None:
             translated_map[idx] = escape_unescaped_angle_brackets(hit)
             cache_put(text, hit, target_profile)
             stats_glossary += 1
+            continue
+        if (cached := cache_get(text, target_profile)) is not None:
+            translated_map[idx] = escape_unescaped_angle_brackets(cached)
+            stats_cache += 1
             continue
         need_api.append((text, idx))
 

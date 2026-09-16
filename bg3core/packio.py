@@ -19,13 +19,25 @@ if TYPE_CHECKING:
     from .logger import CallbackLogger
 
 
+def _error(logger: Optional["CallbackLogger"], msg: str) -> None:
+    """실패 이유를 GUI 로그까지 전달한다. print만 하면 창 없는 exe에서는 사라진다."""
+    if logger:
+        logger.error(msg)
+    else:
+        print(msg)
+
+
 # ── extract pak → 폴더 ─────────────────────────────────────
-def extract_pak(pak_path: Path, dest_folder: Path) -> bool:
+def extract_pak(
+    pak_path: Path,
+    dest_folder: Path,
+    logger: Optional["CallbackLogger"] = None,
+) -> bool:
     try:
         _lspk.read_package(pak_path, dest_folder)
         return True
     except Exception as e:
-        print(f"    ❌ unpack failed: {pak_path} — {e}")
+        _error(logger, f"  ❌ Unpack failed: {Path(pak_path).name} — {e}")
         return False
 
 
@@ -58,12 +70,16 @@ def convert_loca_to_xml(
 
 
 # ── 폴더 → pak ─────────────────────────────────────────────
-def repack_pak(source_folder: Path, output_pak: Path) -> bool:
+def repack_pak(
+    source_folder: Path,
+    output_pak: Path,
+    logger: Optional["CallbackLogger"] = None,
+) -> bool:
     try:
         _lspk.write_package(source_folder, output_pak)
         return True
     except Exception as e:
-        print(f"    ❌ repack failed: {output_pak} — {e}")
+        _error(logger, f"  ❌ Repack failed: {Path(output_pak).name} — {e}")
         return False
 
 

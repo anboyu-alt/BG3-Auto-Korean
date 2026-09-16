@@ -13,6 +13,15 @@ LSLib `LS/PackageFormat.cs`(LSPKHeader16/FileEntry18)·PackageReader/Writer를 �
     Flags u8(압축), SizeOnDisk u32, UncompressedSize u32
     실제 오프셋 = Off1 | (Off2 << 32) — BG3 단일파트는 파일 시작 기준 절대값
 
+구버전(V15/V16, 2023년 이전 LSLib로 묶인 모드) 읽기도 지원한다. 게임은 이 버전을
+그대로 로드하므로 번역 도구도 읽어야 한다(쓰기는 항상 V18):
+  - V15 헤더(34B): NumParts 없음. V16 헤더는 V18과 동일(36B).
+  - 엔트리 테이블은 둘 다 FileEntry15(296B): Name[256], OffsetInFile u64,
+    SizeOnDisk u64, UncompressedSize u64, ArchivePart u32, Flags u32, Crc u32, Unknown2 u32
+  - 구버전 LSLib 라이터는 첫 파일의 엔트리를 하나 더(오프셋 +64, 크기 −64로 어긋난
+    stale 항목) 남긴다. 실측: 이 PC의 V16 모드 6개 전부 동일 패턴. 게임은 이런 pak을
+    정상 로드하므로, 같은 이름이 여럿이면 뒤에서부터 압축 해제가 되는 항목을 택한다.
+
 압축 플래그(하위 니블=method, 상위 니블=level): None=0, Zlib=1, LZ4=2, Zstd=3.
 zstd는 디코드만 지원(선택 의존 `zstandard`); BG3 모드/공식팩은 LZ4가 표준이다.
 """
@@ -22,18 +31,24 @@ import struct
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 import lz4.block as _lz4
 
 LSPK_SIGNATURE = 0x4B50534C  # 'LSPK'
+LSPK_V15 = 15
+LSPK_V16 = 16
 LSPK_V18 = 18
+SUPPORTED_READ_VERSIONS = (LSPK_V15, LSPK_V16, LSPK_V18)
 
-_HEADER = struct.Struct("<IQIBB16sH")        # 36B (시그니처 제외)
-_ENTRY = struct.Struct("<256sIHBBII")        # 272B
+_HEADER = struct.Struct("<IQIBB16sH")        # 36B (시그니처 제외) — V16/V18
+_HEADER15 = struct.Struct("<IQIBB16s")       # 34B — V15 (NumParts 없음)
+_ENTRY = struct.Struct("<256sIHBBII")        # 272B — FileEntry18
+_ENTRY15 = struct.Struct("<256sQQQIIII")     # 296B — FileEntry15 (V15/V16)
 HEADER_SIZE = _HEADER.size                   # 36
 HEADER_TOTAL = 4 + HEADER_SIZE               # 40 (시그니처 포함, 데이터 시작 오프셋)
 ENTRY_SIZE = _ENTRY.size                     # 272
+ENTRY15_SIZE = _ENTRY15.size                 # 296
 
 # 압축 method/level 플래그
 _M_NONE, _M_ZLIB, _M_LZ4, _M_ZSTD = 0, 1, 2, 3
@@ -58,6 +73,10 @@ class FileEntry:
 
 
 def _decompress(buf: bytes, uncompressed_size: int, flags: int) -> bytes:
+    # 빈 파일(크기 0)에도 LSLib·툴킷은 압축 플래그를 그대로 붙인다(예: 빈 Stats txt).
+    # python-lz4는 빈 입력 해제를 에러로 취급하므로 먼저 빈 결과로 돌려준다.
+    if uncompressed_size == 0 or not buf:
+        return b""
     method = flags & 0x0F
     if method == _M_NONE:
         return buf
@@ -102,39 +121,67 @@ def read_entries(pak_path: Union[str, Path]) -> List[FileEntry]:
         sig = struct.unpack_from("<I", head, 0)[0]
         if sig != LSPK_SIGNATURE:
             raise ValueError(f"not a valid .pak (bad signature 0x{sig:08x}): {pak_path}")
-        version, file_list_offset, _flsize, flags, _prio, _md5, num_parts = (
-            _HEADER.unpack_from(head, 4)
-        )
-        if version != LSPK_V18:
-            raise ValueError(f"unsupported .pak version {version} (only V18/BG3)")
+        version = struct.unpack_from("<I", head, 4)[0]
+        if version not in SUPPORTED_READ_VERSIONS:
+            raise ValueError(
+                f"unsupported .pak version {version} (supported: V15/V16/V18)"
+            )
+        if version == LSPK_V15:
+            _v, file_list_offset, _flsize, flags, _prio, _md5 = _HEADER15.unpack_from(head, 4)
+            num_parts = 1
+        else:
+            _v, file_list_offset, _flsize, flags, _prio, _md5, num_parts = (
+                _HEADER.unpack_from(head, 4)
+            )
         if flags & _FLAG_SOLID:
             raise ValueError(f"solid-mode .pak not supported: {pak_path}")
         if num_parts > 1:
             raise ValueError(f"multi-part .pak not supported: {pak_path}")
-        return _read_file_table(f, file_list_offset)
+        return _read_file_table(f, file_list_offset, version)
 
 
-def _read_file_table(f, offset: int) -> List[FileEntry]:
+def _name_of(name_raw: bytes) -> str:
+    nul = name_raw.find(b"\x00")
+    return name_raw[: nul if nul >= 0 else len(name_raw)].decode("utf-8", "replace")
+
+
+def _read_file_table(f, offset: int, version: int = LSPK_V18) -> List[FileEntry]:
     f.seek(offset)
     num_files, comp_size = struct.unpack("<II", f.read(8))
     compressed = f.read(comp_size)
-    table = _lz4.decompress(compressed, uncompressed_size=num_files * ENTRY_SIZE)
     entries: List[FileEntry] = []
-    for i in range(num_files):
-        name_raw, off1, off2, apart, eflags, sod, unc = _ENTRY.unpack_from(
-            table, i * ENTRY_SIZE
-        )
-        nul = name_raw.find(b"\x00")
-        name = name_raw[: nul if nul >= 0 else len(name_raw)].decode("utf-8", "replace")
-        entries.append(
-            FileEntry(name, off1 | (off2 << 32), apart, eflags, sod, unc)
-        )
+    if version == LSPK_V18:
+        table = _lz4.decompress(compressed, uncompressed_size=num_files * ENTRY_SIZE)
+        for i in range(num_files):
+            name_raw, off1, off2, apart, eflags, sod, unc = _ENTRY.unpack_from(
+                table, i * ENTRY_SIZE
+            )
+            entries.append(
+                FileEntry(_name_of(name_raw), off1 | (off2 << 32), apart, eflags, sod, unc)
+            )
+    else:  # V15/V16 — FileEntry15
+        table = _lz4.decompress(compressed, uncompressed_size=num_files * ENTRY15_SIZE)
+        for i in range(num_files):
+            name_raw, off, sod, unc, apart, eflags, _crc, _unk = _ENTRY15.unpack_from(
+                table, i * ENTRY15_SIZE
+            )
+            entries.append(FileEntry(_name_of(name_raw), off, apart, eflags, sod, unc))
     return entries
 
 
+def _group_by_name(entries: List[FileEntry]) -> "dict[str, List[FileEntry]]":
+    """슬래시 정규화한 이름별로 엔트리를 등장 순서대로 묶는다(삭제 마커·타 파트 제외)."""
+    groups: dict = {}
+    for e in entries:
+        if e.archive_part != 0 or _is_deletion(e.offset):
+            continue
+        groups.setdefault(e.name.replace("\\", "/"), []).append(e)
+    return groups
+
+
 def list_package(pak_path: Union[str, Path]) -> List[str]:
-    """pak 내부 파일 경로 목록(슬래시 정규화)."""
-    return [e.name.replace("\\", "/") for e in read_entries(pak_path)]
+    """pak 내부 파일 경로 목록(슬래시 정규화, 중복 이름은 한 번만)."""
+    return list(_group_by_name(read_entries(pak_path)).keys())
 
 
 def read_package(pak_path: Union[str, Path], dest_dir: Union[str, Path]) -> int:
@@ -143,13 +190,22 @@ def read_package(pak_path: Union[str, Path], dest_dir: Union[str, Path]) -> int:
     dest.mkdir(parents=True, exist_ok=True)
     extracted = 0
     with open(pak_path, "rb") as f:
-        for e in read_entries(pak_path):
-            if e.archive_part != 0 or _is_deletion(e.offset):
-                continue
-            f.seek(e.offset)
-            blob = f.read(e.size_on_disk)
-            raw = _decompress(blob, e.uncompressed_size, e.flags)
-            out_path = dest / e.name.replace("\\", "/")
+        for name, candidates in _group_by_name(read_entries(pak_path)).items():
+            # 같은 이름이 여럿이면 마지막 항목부터 시도한다(패치·덮어쓰기 의미론).
+            # 구버전 LSLib의 stale 중복 엔트리는 압축 해제에 실패하므로 자연히 걸러진다.
+            raw = None
+            last_err: Optional[Exception] = None
+            for e in reversed(candidates):
+                f.seek(e.offset)
+                blob = f.read(e.size_on_disk)
+                try:
+                    raw = _decompress(blob, e.uncompressed_size, e.flags)
+                    break
+                except Exception as err:  # zlib.error / lz4 error / ValueError
+                    last_err = err
+            if raw is None:
+                raise ValueError(f"cannot decompress entry {name!r}: {last_err}")
+            out_path = dest / name
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_bytes(raw)
             extracted += 1

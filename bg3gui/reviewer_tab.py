@@ -23,7 +23,7 @@ from .widgets.description_panel import DescriptionPanel
 
 
 class _UnpackWorker(QThread):
-    done = Signal(bool)
+    done = Signal(bool, str)  # (성공 여부, 실패 이유)
 
     def __init__(self, pak_path: Path, dest: Path, parent=None):
         super().__init__(parent)
@@ -31,8 +31,11 @@ class _UnpackWorker(QThread):
         self._dest = dest
 
     def run(self):
-        ok = extract_pak(self._pak, self._dest)
-        self.done.emit(ok)
+        from bg3core.logger import CallbackLogger
+        reasons: list = []
+        logger = CallbackLogger(on_log=lambda e: reasons.append(e.text))
+        ok = extract_pak(self._pak, self._dest, logger=logger)
+        self.done.emit(ok, "\n".join(reasons))
 
 
 class ReviewerTab(QWidget):
@@ -151,10 +154,13 @@ class ReviewerTab(QWidget):
         self._unpack_worker.done.connect(self._on_unpack_done)
         self._unpack_worker.start()
 
-    def _on_unpack_done(self, ok: bool) -> None:
+    def _on_unpack_done(self, ok: bool, reason: str = "") -> None:
         self._btn_open.setEnabled(True)
         if not ok:
-            QMessageBox.critical(self, t("common.error"), "PAK 언팩에 실패했습니다.")
+            msg = "PAK 언팩에 실패했습니다."
+            if reason:
+                msg += f"\n\n{reason.strip()}"
+            QMessageBox.critical(self, t("common.error"), msg)
             return
         target_folder = self._cfg.target_language if self._cfg else "Korean"
         review_files = load_review_files(self._temp_dir, target_folder=target_folder)

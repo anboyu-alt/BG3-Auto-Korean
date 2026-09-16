@@ -247,3 +247,64 @@ def test_process_xml_no_official_is_noop(tmp_path):
     )
     # API 미연결 → 번역 실패 → 원문 보존
     assert "Zorblax the Unmaker" in out
+
+
+# ── 제보 1: 내 용어집이 캐시·공식 사전보다 우선해야 한다 ─────────
+@pytest.fixture
+def custom_glossary(monkeypatch):
+    """디스크와 무관하게 내 용어집을 주입하고, 번역 캐시를 비운다."""
+    import bg3core.glossary as g
+    import bg3core.translate as t
+    monkeypatch.setattr(g, "_custom_glossary_cache", {"Bonus Action": "보조 행동"})
+    monkeypatch.setattr(g, "_effective_glossary_cache", None)
+    monkeypatch.setattr(t, "_translation_cache", {})
+    monkeypatch.setattr(t, "_cache_dirty", False)
+    t._SYSTEM_INSTRUCTIONS.clear()
+    yield
+    t._SYSTEM_INSTRUCTIONS.clear()
+    g._effective_glossary_cache = None
+
+
+def test_custom_glossary_beats_translation_cache(tmp_path, custom_glossary):
+    import bg3core.translate as t
+    t._translation_cache["Bonus Action"] = "추가 행동"  # 이전 실행에서 남은 캐시
+    content = '<content contentuid="h1" version="1">Bonus Action</content>'
+    out = t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"))
+    assert "보조 행동" in out
+    assert "추가 행동" not in out
+
+
+def test_custom_glossary_beats_cache_in_text_list(tmp_path, custom_glossary):
+    import bg3core.translate as t
+    t._translation_cache["Bonus Action"] = "추가 행동"
+    out = t.translate_text_list(["Bonus Action"], "mcm", "", str(tmp_path / "log.txt"))
+    assert out == {"Bonus Action": "보조 행동"}
+
+
+def test_prompt_section_excludes_keys():
+    official = {"Bonus Action": "추가 행동", "Fireball": "화염구"}
+    sec = og.build_official_prompt_section(
+        "Cast Fireball as a Bonus Action.", official, exclude={"bonus action"},
+    )
+    assert "Fireball -> 화염구" in sec
+    assert "Bonus Action" not in sec
+
+
+def test_official_prompt_context_skips_custom_glossary_terms(tmp_path, custom_glossary, monkeypatch):
+    """문장 속 용어: 공식 사전이 내 용어집과 반대되는 지시를 프롬프트에 넣지 않아야 한다."""
+    import bg3core.translate as t
+    captured = {}
+
+    def fake_call(lines_text, filename, ci, tc, api_key, cancel_event=None,
+                  target_profile=None, extra_context=""):
+        captured["extra"] = extra_context
+        return None, "stub"
+
+    monkeypatch.setattr(t, "call_gemini", fake_call)
+    # Zorblax는 기본 용어집에 없는 가상 용어 → 공식 사전 섹션에 남아야 하고,
+    # Bonus Action은 (내) 용어집에 있으므로 공식 섹션에서 빠져야 한다.
+    official = {"Bonus Action": "추가 행동", "Zorblax": "조르블락스"}
+    content = '<content contentuid="h1" version="1">Zorblax grants a Bonus Action.</content>'
+    t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"), official=official)
+    assert "Zorblax -> 조르블락스" in captured["extra"]
+    assert "Bonus Action" not in captured["extra"]

@@ -5,7 +5,7 @@
 ; "신뢰 런타임 폴더 + 표준 인스톨러 포맷". 코드 서명 없이도 onefile 패커보다 오탐이 훨씬 적다.
 ;
 ; 컴파일(빌드 스크립트가 자동 호출):
-;   ISCC.exe /DMyAppVersion=7.0 installer.iss
+;   ISCC.exe /DMyAppVersion=7.1 installer.iss
 ;
 ; PrivilegesRequired=lowest → 관리자 권한 없이 사용자 폴더에 설치(엘리베이션 없음 = AV 마찰↓).
 

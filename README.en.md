@@ -1,9 +1,13 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v7.0
+# BG3 Mod Translator v7.1
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
 Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box as a **portable build — just extract and run, no installation required.**
+
+> ### 🆕 v7.1 — bug-fix release
+> - 📦 **Legacy PAK (V15/V16) and zero-byte-file PAK unpack support** — fixes "PAK unpack failed" / no translated PAK produced
+> - 🔎 **Failure reasons shown in the log and error dialog** + 📖 **custom glossary takes top priority** + 🧾 log display fixes
 
 > ### 🆕 What's new in v7.0
 > - 🚫 **No external tools needed** — Divine.exe / LSLib / .NET are no longer required; `.pak`/`.loca` are handled natively.
@@ -44,9 +48,9 @@ This tool unpacks the original mod (`.pak`), adds translations, and **repacks th
 
 > **A portable build you can use immediately without installing Python.**
 
-### 👉 [Download BG3_ModTranslator_v7.0.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
+### 👉 [Download BG3_ModTranslator_v7.1.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
 
-Download `BG3_ModTranslator_v7.0.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
+Download `BG3_ModTranslator_v7.1.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
 
 > 🛡️ This is a free, open-source, unsigned tool, so antivirus warnings used to appear — the folder (ZIP) build means no antivirus false positives.
 
@@ -87,7 +91,7 @@ Required for Google AI to perform translations. Obtaining a key is free.
 ## Download
 
 1. Go to the **[Releases](../../releases)** page of this repository
-2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.0.zip` to download
+2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.1.zip` to download
 3. **Extract all files** from the `.zip`, then run `BG3_ModTranslator.exe` inside the extracted folder (the folder can be in any location)
 
 > **If a Windows security warning appears:** Click "More info" → "Run anyway".

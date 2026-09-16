@@ -1,9 +1,13 @@
 **한국어** | [English](README.en.md)
 
-# BG3 Mod Translator v7.0
+# BG3 Mod Translator v7.1
 
 발더스 게이트 3(Baldur's Gate 3) 모드의 텍스트를 Google Gemini AI로 자동 번역하는 도구입니다.
 **어떤 언어의 모드든 한국어를 포함한 15개 언어 중 원하는 언어로** 번역할 수 있으며, 설치 없이 **압축만 풀면 바로 쓰는 포터블 버전**입니다.
+
+> ### 🆕 v7.1 — 오류 제보 일괄 수정
+> - 📦 **구버전 PAK(V15·V16)·빈 파일이 든 PAK 언팩 지원** — "PAK 언팩에 실패" / 번역 PAK이 안 생기던 문제 해결
+> - 🔎 **실패 이유를 로그·오류 창에 표시** + 📖 **내 용어집 최우선 적용** + 🧾 로그 표시 오류 수정
 
 > ### 🆕 v7.0의 새로운 점
 > - 🚫 **외부 툴 불필요** — Divine.exe·LSLib·.NET 설치가 더 이상 필요 없습니다. pak/loca를 자체 처리합니다.
@@ -44,9 +48,9 @@
 
 > **Python 설치 없이 바로 사용 가능한 포터블 버전입니다.**
 
-### 👉 [BG3_ModTranslator_v7.0.zip 다운로드](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
+### 👉 [BG3_ModTranslator_v7.1.zip 다운로드](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
 
-최신 릴리즈에서 `BG3_ModTranslator_v7.0.zip` 을 받아 **모든 파일을 압축 해제**한 뒤, 압축을 푼 폴더 안의 `BG3_ModTranslator.exe` 를 실행하세요.
+최신 릴리즈에서 `BG3_ModTranslator_v7.1.zip` 을 받아 **모든 파일을 압축 해제**한 뒤, 압축을 푼 폴더 안의 `BG3_ModTranslator.exe` 를 실행하세요.
 
 > 🛡️ 무료 오픈소스 미서명 도구라 백신 경고가 뜰 수 있었지만, 폴더(압축) 형태로 배포해 백신 오탐을 없앴습니다.
 
@@ -87,7 +91,7 @@ Google AI가 번역을 수행하기 위해 필요합니다. 발급은 무료입�
 ## 다운로드
 
 1. 이 저장소의 **[Releases](../../releases)** 페이지로 이동합니다
-2. 최신 릴리즈의 **Assets** 에서 `BG3_ModTranslator_v7.0.zip` 을 클릭해 다운로드합니다
+2. 최신 릴리즈의 **Assets** 에서 `BG3_ModTranslator_v7.1.zip` 을 클릭해 다운로드합니다
 3. 받은 `.zip` 의 **모든 파일을 압축 해제**한 뒤, 압축을 푼 폴더 안의 `BG3_ModTranslator.exe` 를 실행합니다 (폴더는 어느 위치에 있어도 무관합니다)
 
 > **Windows 보안 경고가 뜨면:** "추가 정보" → "실행" 을 클릭하면 됩니다.

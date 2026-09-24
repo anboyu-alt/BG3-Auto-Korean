@@ -3,6 +3,11 @@ This tool repackages the entire original mod, so the translated .pak it produces
 
 ⚠ This is a one-time-setup tool, NOT a drag-and-drop mod. Downloading the file alone is not enough — you MUST follow the full setup guide on GitHub (link below) before using it.
 
+🆕 What's new in v7.2
+- Your custom glossary is now reliably applied inside sentences, too. v7.1 only put it first when the whole text was exactly the term, so terms inside sentences could still come from old cached translations or from the AI's own wording. The final translation is now checked, and your term is enforced.
+- Custom glossary edits are saved automatically as you type — no more terms left unapplied because Save wasn't clicked.
+- Korean: "Bonus Action" in the built-in glossary is now 보조 행동, matching the official game translation. Old "추가 행동" left in your translation cache is corrected automatically on the next run.
+
 🆕 What's new in v7.1 (bug-fix release)
 - Legacy PAK support: mods packed with older LSLib (V15/V16) now unpack correctly. This fixes the "PAK unpack failed" error and the case where "Translation complete" appeared right away but no translated PAK was created.
 - Fixed unpack failure on PAKs that contain empty (zero-byte) files — common in Toolkit-built mods (e.g. Thor, several class mods). Those mods now translate normally.
@@ -35,7 +40,7 @@ Main features
 - First-run setup wizard guides you through the API key and the BG3 folder; the BG3 install folder is auto-detected (Steam)
 - Batch mode: translate every .pak in a folder at once
 - Official language-pack reference (on by default): reuse your installed game's official translations for consistent terminology across all 15 languages, and to save API calls. The dictionary is built once from your local game files and cached — official text is never redistributed.
-- Built-in 347-term BG3 glossary (character names, abilities, spells) — English to Korean. You can also add and edit your own custom glossary inline (spreadsheet-style); your own entries always take priority over the built-in glossary, the cache and the official pack. For other languages, enable the official language-pack reference above for consistent official terms.
+- Built-in 347-term BG3 glossary (character names, abilities, spells) — English to Korean. You can also add and edit your own custom glossary inline (spreadsheet-style); your own entries always take priority over the built-in glossary, the cache and the official pack — even inside sentences. For other languages, enable the official language-pack reference above for consistent official terms.
 - Translation cache reuses past results to save time and API usage
 - Review tab: a vertical card list that shows each entry's full source text with the translation right below it (edit inline; the box auto-resizes), so you can proofread and fix errors before building the final .pak
 - MCM support: also translates Mod Configuration Menu mods (blueprint + Lua text)
@@ -69,7 +74,7 @@ This tool requires a one-time setup (a free Gemini API key). It will NOT work if
 Almost every "how do I use this?" question is already answered there. Please read it first before posting in the comments. Thank you!
 
 Shout outs
-Thanks to everyone who reported bugs on v7.0 — every fix in v7.1 came straight from your reports.
+Thanks to everyone who reported bugs on v7.0 and v7.1 — every fix in v7.1 and v7.2 came straight from your reports.
 Special thanks to frodocompl for the ideas and suggestions that shaped recent updates — much appreciated!
 Special thanks to the Baldur's Gate 3 community at DCInside for the countless bug reports, testing, and reviews throughout development — this tool would not be what it is without you. https://gall.dcinside.com/mgallery/board/lists/?id=bg3
 Thanks also to Norbyte for LSLib — its .pak/.loca format made the native implementation possible — and to the entire BG3 modding community.
@@ -83,6 +88,11 @@ Thanks also to Norbyte for LSLib — its .pak/.loca format made the native imple
 이 도구는 원본 모드 전체를 다시 패키징하므로, 생성된 번역된 .pak 파일에는 원작자의 에셋과 스크립트가 모두 포함되어 있습니다. 원작자의 명시적 허가 없이 번역된 파일을 업로드·재배포하지 마십시오. 이는 원작자의 권리와 Nexus 규칙 위반이며 계정 정지 등 불이익을 받을 수 있습니다. 번역된 파일은 개인 용도로만 사용하거나, 공유 전 반드시 원작자의 허가를 받으십시오.
 
 ⚠ 이 도구는 1회 설정이 필요한 도구이며, 드래그 앤 드롭 방식의 모드가 아닙니다. 파일 다운로드만으로는 작동하지 않으며, 사용 전 GitHub(하단 링크)의 전체 설정 가이드를 반드시 따라야 합니다.
+
+🆕 v7.2의 새로운 점
+- 내 용어집이 문장 속에서도 확실히 적용됩니다. v7.1은 문자열 전체가 용어와 같을 때만 내 용어집을 먼저 적용해, 문장 안의 용어는 예전 번역 캐시나 AI가 쓴 표기가 그대로 나올 수 있었습니다. 이제 최종 번역을 검사해 내 표기를 강제합니다.
+- 내 용어집은 입력하는 즉시 자동 저장됩니다. 저장 버튼을 누르지 않아 반영되지 않던 문제가 없어졌습니다.
+- 기본 용어집의 "Bonus Action"을 게임 공식 표기인 "보조 행동"으로 고쳤습니다. 번역 캐시에 남은 예전 표기 "추가 행동"도 다음 번역 때 자동으로 바로잡힙니다.
 
 🆕 v7.1의 새로운 점 (오류 수정 판)
 - 구버전 PAK 지원: 예전 LSLib(V15·V16)로 묶인 모드도 정상 언팩됩니다. "PAK 언팩에 실패했습니다" 오류와, 곧바로 "번역 완료"만 뜨고 번역 PAK이 생성되지 않던 문제가 해결됩니다.
@@ -116,7 +126,7 @@ BG3 Mod Translator는 Google Gemini AI로 Baldur's Gate 3 모드 텍스트를 �
 - 첫 실행 안내 위저드가 API 키·BG3 폴더 설정을 안내하며, BG3 설치 폴더는 자동 감지(Steam)됩니다
 - 일괄 모드: 폴더 안 모든 .pak 한 번에 번역
 - 공식 언어팩 참조(기본 켜짐): 설치된 게임의 공식 번역을 기준으로 활용해 15개 언어 모두에서 용어를 일관되게 유지하고 API 사용을 줄입니다. 사전은 내 로컬 게임 파일에서 한 번만 만들어 캐시하며, 공식 텍스트를 외부로 재배포하지 않습니다.
-- 347개 용어 내장 BG3 용어집(캐릭터·능력·주문) — 영어→한국어. 사용자 지정 용어집을 표에서 바로 추가·수정(엑셀식 인라인)할 수 있으며, 내 용어집은 기본 용어집·캐시·공식 언어팩보다 항상 우선합니다. 다른 언어는 위의 공식 언어팩 참조를 켜면 공식 용어를 일관되게 쓸 수 있습니다.
+- 347개 용어 내장 BG3 용어집(캐릭터·능력·주문) — 영어→한국어. 사용자 지정 용어집을 표에서 바로 추가·수정(엑셀식 인라인)할 수 있으며, 내 용어집은 문장 속에서도 기본 용어집·캐시·공식 언어팩보다 항상 우선합니다. 다른 언어는 위의 공식 언어팩 참조를 켜면 공식 용어를 일관되게 쓸 수 있습니다.
 - 번역 캐시로 시간·API 사용량 절약
 - 검수 탭: 세로 카드 리스트로, 항목마다 원문 전체와 그 아래 번역을 함께 보여줍니다(바로 편집, 칸 높이 자동 조절). 최종 .pak 생성 전 교정·수정하세요.
 - MCM 지원: 모드 구성 메뉴(MCM) 모드(블루프린트 + Lua)도 번역
@@ -150,7 +160,7 @@ v7.1부터 번역이 실패하면 로그에 정확한 이유가 빨간색으로 
 "어떻게 쓰나요?"에 대한 답은 거의 모두 README에 있습니다. 댓글 전에 먼저 README를 읽어주세요. 감사합니다!
 
 샤우트아웃
-v7.0의 오류를 제보해 주신 모든 분께 감사드립니다. v7.1의 수정은 전부 여러분의 제보에서 나왔습니다.
+v7.0·v7.1의 오류를 제보해 주신 모든 분께 감사드립니다. v7.1·v7.2의 수정은 전부 여러분의 제보에서 나왔습니다.
 최근 업데이트의 방향을 잡아준 아이디어와 제안을 주신 frodocompl님께 특별히 감사드립니다. 덕분에 더 좋은 도구가 되었습니다!
 개발 기간 내내 수많은 버그 제보·테스트·리뷰로 도와주신 디시인사이드 발더스 게이트 3 갤러리 여러분께 진심으로 감사드립니다. 여러분이 없었다면 이 도구는 지금의 모습이 될 수 없었습니다. https://gall.dcinside.com/mgallery/board/lists/?id=bg3
 LSLib을 만들어주신 Norbyte님께 감사드립니다 — 그 .pak/.loca 포맷 덕분에 자체 구현이 가능했습니다. BG3 모딩 커뮤니티 전체에도 감사드립니다.

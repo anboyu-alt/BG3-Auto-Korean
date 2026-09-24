@@ -16,7 +16,7 @@ from .constants import (
 )
 from .glossary import (
     GLOSSARY, try_glossary_only, build_glossary_prompt_section, apply_glossary,
-    get_effective_glossary,
+    get_effective_glossary, get_enforced_terms, enforce_custom_glossary,
 )
 from .official_glossary import lookup_official, build_official_prompt_section
 from .language import (
@@ -446,6 +446,16 @@ def process_xml_file(
     # 우선순위: skip → 용어집(기본+내 용어집) → 번역 캐시 → 공식 사전 → API.
     # 용어집이 캐시보다 앞이어야 사용자가 용어를 바꾼 뒤 재번역할 때 이전 실행의
     # 캐시 값이 아니라 새 용어가 반영된다(제보: 내 용어집이 적용되지 않음).
+    # 내 용어집은 결과에도 강제한다: 캐시·공식 사전·AI 출력 어디서 왔든, 원문에 내
+    # 용어가 있으면 번역에 내 표기가 들어가야 한다. 맞출 수 없는 캐시는 버리고 재번역.
+    custom = get_enforced_terms() if use_glossary else {}
+    stats_recheck = 0
+
+    def _enforce(src: str, tr: str) -> Tuple[str, bool]:
+        if not custom:
+            return tr, True
+        return enforce_custom_glossary(src, tr, custom, official)
+
     for text, idx in unique_list:
         if should_skip_translation(text, target_profile):
             translated_map[idx] = text
@@ -455,9 +465,17 @@ def process_xml_file(
             cache_put(text, hit, target_profile)
             stats_glossary += 1
         elif (cached := cache_get(text, target_profile)) is not None:
-            translated_map[idx] = escape_unescaped_angle_brackets(cached)
+            fixed, ok = _enforce(text, cached)
+            if not ok:
+                stats_recheck += 1
+                need_api.append((text, idx))
+                continue
+            if fixed != cached:
+                cache_put(text, fixed, target_profile)
+            translated_map[idx] = escape_unescaped_angle_brackets(fixed)
             stats_cache += 1
         elif official and (off := lookup_official(text, official)) is not None:
+            off, _ = _enforce(text, off)
             translated_map[idx] = escape_unescaped_angle_brackets(off)
             cache_put(text, off, target_profile)
             stats_official += 1
@@ -466,6 +484,8 @@ def process_xml_file(
 
     local_total = stats_cache + stats_skip + stats_glossary + stats_official
     _log(f"    -> Local: cache {stats_cache} + skip {stats_skip} + glossary {stats_glossary} + official {stats_official} = {local_total}")
+    if stats_recheck:
+        _log(f"    -> Re-translating {stats_recheck} cached entries to apply My Glossary")
     _log(f"    -> Need API: {len(need_api)}")
 
     if need_api:
@@ -543,6 +563,7 @@ def process_xml_file(
                         t = escape_unescaped_angle_brackets(t)
                         if use_glossary:
                             t = apply_glossary(t)
+                            t, _ = _enforce(orig, t)
                         translated_map[idx] = t
                         cache_put(orig, t, target_profile)
                         ok += 1
@@ -622,6 +643,7 @@ def translate_text_list(
     translated_map: Dict[int, str] = {}
     need_api: List[Tuple[str, int]] = []
     stats_cache = stats_skip = stats_glossary = 0
+    custom = get_enforced_terms() if use_glossary else {}
 
     # process_xml_file과 같은 우선순위: 용어집이 캐시보다 앞.
     for text, idx in sorted(unique_texts.items(), key=lambda x: x[1]):
@@ -634,9 +656,15 @@ def translate_text_list(
             stats_glossary += 1
             continue
         if (cached := cache_get(text, target_profile)) is not None:
-            translated_map[idx] = escape_unescaped_angle_brackets(cached)
-            stats_cache += 1
-            continue
+            fixed, ok = (
+                enforce_custom_glossary(text, cached, custom) if custom else (cached, True)
+            )
+            if ok:
+                if fixed != cached:
+                    cache_put(text, fixed, target_profile)
+                translated_map[idx] = escape_unescaped_angle_brackets(fixed)
+                stats_cache += 1
+                continue
         need_api.append((text, idx))
 
     _log(f"    -> [{label}] unique {len(unique_texts)} | cache {stats_cache} glossary {stats_glossary} skip {stats_skip} | API {len(need_api)}")
@@ -695,6 +723,8 @@ def translate_text_list(
                         t = escape_unescaped_angle_brackets(t)
                         if use_glossary:
                             t = apply_glossary(t)
+                            if custom:
+                                t, _ = enforce_custom_glossary(orig, t, custom)
                         translated_map[idx] = t
                         cache_put(orig, t, target_profile)
                 time.sleep(1.5)

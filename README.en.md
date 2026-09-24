@@ -1,9 +1,13 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v7.1
+# BG3 Mod Translator v7.2
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
 Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box as a **portable build — just extract and run, no installation required.**
+
+> ### 🆕 v7.2 — custom glossary reliably applied inside sentences
+> - 📖 **Custom glossary enforced on the final translation** — cached sentences and AI output are corrected to your terms; edits auto-save
+> - ✅ **Korean: Bonus Action = 보조 행동** — built-in glossary now matches the official game term, and old cached "추가 행동" is auto-corrected
 
 > ### 🆕 v7.1 — bug-fix release
 > - 📦 **Legacy PAK (V15/V16) and zero-byte-file PAK unpack support** — fixes "PAK unpack failed" / no translated PAK produced
@@ -48,9 +52,9 @@ This tool unpacks the original mod (`.pak`), adds translations, and **repacks th
 
 > **A portable build you can use immediately without installing Python.**
 
-### 👉 [Download BG3_ModTranslator_v7.1.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
+### 👉 [Download BG3_ModTranslator_v7.2.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
 
-Download `BG3_ModTranslator_v7.1.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
+Download `BG3_ModTranslator_v7.2.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
 
 > 🛡️ This is a free, open-source, unsigned tool, so antivirus warnings used to appear — the folder (ZIP) build means no antivirus false positives.
 
@@ -91,7 +95,7 @@ Required for Google AI to perform translations. Obtaining a key is free.
 ## Download
 
 1. Go to the **[Releases](../../releases)** page of this repository
-2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.1.zip` to download
+2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.2.zip` to download
 3. **Extract all files** from the `.zip`, then run `BG3_ModTranslator.exe` inside the extracted folder (the folder can be in any location)
 
 > **If a Windows security warning appears:** Click "More info" → "Run anyway".
@@ -412,6 +416,11 @@ However, items that could break game functionality if auto-translated — such a
 ---
 
 ## Update History
+
+### v7.2
+- **Custom glossary now applies inside sentences**: v7.1 only prioritized your glossary when the whole string matched a term, so terms inside sentences still came from old cached translations or from whatever the AI wrote. The final translation is now checked: if the source contains one of your terms, your wording must appear. Built-in or official wording is replaced in place, and only cached entries that can't be fixed are re-translated.
+- **Custom glossary auto-save**: edits are saved as you type, so forgetting to click Save no longer leaves your terms unapplied.
+- **Korean: Bonus Action → 보조 행동**: the built-in glossary now uses the official game term, and old "추가 행동" left in the cache by earlier versions is corrected automatically.
 
 ### v7.1
 - **Legacy PAK (V15/V16) support**: mods packed with pre-2023 LSLib now unpack, and the stale duplicate entry those writers leave behind is ignored. (Fixes v7.0 "PAK unpack failed" / instant "Translation complete" with no output.)

@@ -16,6 +16,12 @@ def qapp():
     yield app
 
 
+@pytest.fixture(autouse=True)
+def _no_disk_writes(monkeypatch):
+    """자동 저장이 실제 사용자 custom_glossary.json을 덮어쓰지 않게 막는다."""
+    monkeypatch.setattr("bg3gui.glossary_tab.save_custom_glossary", lambda d: None)
+
+
 def _new_tab(qapp):
     from bg3gui.glossary_tab import GlossaryTab
     tab = GlossaryTab()
@@ -89,3 +95,14 @@ def test_delete_selected_row_removes_entry(qapp):
     tab._delete_selected_row()
     assert "Fireball" not in tab._custom_data
     assert "Haste" in tab._custom_data
+
+
+def test_cell_edit_autosaves(qapp, monkeypatch):
+    """저장 버튼을 누르지 않아도 편집 즉시 저장되어야 번역에 반영된다."""
+    saved = {}
+    monkeypatch.setattr("bg3gui.glossary_tab.save_custom_glossary", lambda d: saved.update(d))
+    from PySide6.QtWidgets import QTableWidgetItem
+    tab = _new_tab(qapp)
+    tab._custom_table.setItem(0, 0, QTableWidgetItem("Bonus Action"))
+    tab._custom_table.setItem(0, 1, QTableWidgetItem("보조 행동"))
+    assert saved.get("Bonus Action") == "보조 행동"

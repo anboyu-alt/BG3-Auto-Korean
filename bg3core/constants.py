@@ -1,6 +1,6 @@
 import re
 
-__version__ = "7.1"
+__version__ = "7.2"
 
 INPUT_GLOB = "*.xml"
 

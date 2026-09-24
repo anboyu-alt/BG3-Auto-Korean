@@ -337,8 +337,9 @@ GLOSSARY = {
     "Advantage": "유리",
     "Disadvantage": "불리",
     "Concentration": "집중",
-    "Bonus Action": "추가 행동",
-    "Bonus Actions": "추가 행동",
+    # 게임 공식 한국어 팩 표기(보조 행동). 예전 값 "추가 행동"은 GLOSSARY_CORRECTIONS 참고.
+    "Bonus Action": "보조 행동",
+    "Bonus Actions": "보조 행동",
     "Reaction": "반응",
     "Reactions": "반응",
     "Critical Hit": "치명타",
@@ -450,6 +451,21 @@ GLOSSARY = {
 }
 
 
+# 기본 용어집에서 표기를 바로잡은 항목의 "예전 값". 예전 버전이 번역 캐시에 남긴
+# 옛 표기를 새 표기로 자동 교정하는 데 쓴다(사용자 용어집이 없어도 적용).
+GLOSSARY_CORRECTIONS = {
+    "Bonus Action": ["추가 행동"],
+    "Bonus Actions": ["추가 행동"],
+}
+
+
+def get_enforced_terms() -> dict:
+    """결과 번역에 반드시 들어가야 하는 용어: 바로잡은 기본 용어 + 내 용어집(우선)."""
+    terms = {k: GLOSSARY[k] for k in GLOSSARY_CORRECTIONS if k in GLOSSARY}
+    terms.update(load_custom_glossary())
+    return terms
+
+
 def try_glossary_only(text: str) -> Optional[str]:
     g = get_effective_glossary()
     stripped = text.strip()
@@ -471,6 +487,74 @@ def build_glossary_prompt_section() -> str:
         lines.append(f"  {src} -> {dst}")
     lines.append("")
     return "\n".join(lines) + "\n"
+
+
+def _term_in_source(term: str, source: str) -> bool:
+    """영어 원문에 용어가 단어 단위로 들어 있는지(대소문자 무시)."""
+    return re.search(r"\b" + re.escape(term) + r"\b", source, re.IGNORECASE) is not None
+
+
+def _alternatives(term: str, mine: str, official: Optional[dict]) -> list:
+    """내 용어 대신 번역에 들어가 있을 수 있는 다른 표기(기본 용어집·공식 언어팩).
+
+    띄어쓰기만 다른 변형(추가 행동/추가행동)도 포함한다. 내 용어의 일부인 표기는
+    치환하면 '보조 보조 행동'처럼 망가지므로 제외한다. 긴 것부터 치환한다.
+    """
+    cands = []
+    low = term.lower()
+    for src, dst in GLOSSARY.items():
+        if src.lower() == low:
+            cands.append(dst)
+    for src, olds in GLOSSARY_CORRECTIONS.items():
+        if src.lower() == low:
+            cands.extend(olds)
+    if official:
+        for src, dst in official.items():
+            if src.lower() == low:
+                cands.append(dst)
+    out = []
+    for c in cands:
+        for v in (c, c.replace(" ", "")):
+            v = (v or "").strip()
+            if v and v != mine and v not in mine and v not in out:
+                out.append(v)
+    return sorted(out, key=len, reverse=True)
+
+
+def enforce_custom_glossary(
+    source: str,
+    translated: str,
+    custom: Optional[dict] = None,
+    official: Optional[dict] = None,
+) -> tuple:
+    """번역 결과에 '내 용어집' 표기가 실제로 쓰였는지 확인하고 맞춘다.
+
+    원문에 내 용어집의 영어 용어가 있을 때:
+      - 번역에 내 표기가 이미 있으면 그대로 둔다.
+      - 기본 용어집·공식 언어팩 표기가 들어가 있으면 내 표기로 바꾼다.
+      - 둘 다 없으면(AI가 제3의 표기를 씀) 미충족으로 표시한다.
+    반환: (보정된 번역, 모든 용어 충족 여부). 호출자는 미충족인 캐시 항목을
+    버리고 다시 번역한다. (제보: 7.1에서도 문장 속 용어는 캐시 값이 그대로 나옴)
+    """
+    if custom is None:
+        custom = load_custom_glossary()
+    if not custom or not translated:
+        return translated, True
+    ok = True
+    for term, mine in sorted(custom.items(), key=lambda x: len(x[0]), reverse=True):
+        mine = (mine or "").strip()
+        if not term or not mine or not _term_in_source(term, source):
+            continue
+        if mine in translated:
+            continue
+        replaced = False
+        for alt in _alternatives(term, mine, official):
+            if alt in translated:
+                translated = translated.replace(alt, mine)
+                replaced = True
+        if not replaced:
+            ok = False
+    return translated, ok
 
 
 def apply_glossary(text: str) -> str:

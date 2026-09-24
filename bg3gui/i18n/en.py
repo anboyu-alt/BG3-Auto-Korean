@@ -84,7 +84,7 @@ STRINGS = {
     "glossary.builtin_tab": "📚 Built-in Glossary",
     "glossary.custom_tab": "✏️ My Glossary",
     "glossary.builtin_info": "{count} entries — read-only.",
-    "glossary.custom_info": "My Glossary overrides the built-in one. Double-click a cell to edit inline; type into the empty bottom row to add a new term. Click Save to apply.",
+    "glossary.custom_info": "My Glossary overrides the built-in one. Double-click a cell to edit inline; type into the empty bottom row to add a new term. Changes are saved automatically.",
     "glossary.col_en": "English",
     "glossary.col_ko": "Translation",
     "glossary.add": "+ Add",

@@ -154,8 +154,15 @@ class GlossaryTab(QWidget):
                 data[en] = ko
         self._custom_data = data
 
+    def _autosave(self) -> None:
+        """편집 즉시 저장한다. 저장 버튼을 누르지 않아 번역에 반영되지 않던 문제 방지."""
+        save_custom_glossary(self._custom_data)
+        self._lbl_saved.setText(t("glossary.saved", count=len(self._custom_data)))
+        QTimer.singleShot(3000, lambda: self._lbl_saved.setText(""))
+
     def _on_custom_cell_changed(self, row: int, col: int) -> None:
         self._rebuild_custom_data()
+        self._autosave()
         # 마지막 행이 채워졌으면 새 빈 행을 추가해 연속 입력을 가능하게 한다.
         last = self._custom_table.rowCount() - 1
         if last < 0 or self._cell_text(last, 0).strip() or self._cell_text(last, 1).strip():
@@ -174,6 +181,7 @@ class GlossaryTab(QWidget):
         self._custom_table.removeRow(row)
         self._custom_table.blockSignals(False)
         self._rebuild_custom_data()
+        self._autosave()
 
     def _save(self) -> None:
         self._rebuild_custom_data()

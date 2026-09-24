@@ -308,3 +308,71 @@ def test_official_prompt_context_skips_custom_glossary_terms(tmp_path, custom_gl
     t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"), official=official)
     assert "Zorblax -> 조르블락스" in captured["extra"]
     assert "Bonus Action" not in captured["extra"]
+
+
+# ── 제보 1-후속(v7.1): 문장 속 용어가 캐시된 번역에 남아 있으면 내 용어집이 무시된다 ──
+def test_custom_glossary_enforced_on_cached_sentence(tmp_path, custom_glossary):
+    """캐시된 문장 번역이 기본 용어(추가 행동)를 쓰고 있으면 내 용어(보조 행동)로 바꿔야 한다."""
+    import bg3core.translate as t
+    t._translation_cache["Gain a Bonus Action."] = "추가 행동을 얻습니다."
+    content = '<content contentuid="h1" version="1">Gain a Bonus Action.</content>'
+    out = t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"))
+    assert "보조 행동을 얻습니다." in out
+    assert "추가 행동" not in out
+
+
+def test_custom_glossary_enforced_on_api_output(tmp_path, custom_glossary, monkeypatch):
+    """API가 내 용어를 무시하고 기본 용어로 답해도 결과에는 내 용어가 들어가야 한다."""
+    import bg3core.translate as t
+    monkeypatch.setattr(t, "call_gemini", lambda *a, **k: ("1|추가 행동으로 공격합니다.", "ok"))
+    content = '<content contentuid="h1" version="1">Attack as a Bonus Action.</content>'
+    out = t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"))
+    assert "보조 행동으로 공격합니다." in out
+
+
+def test_cached_sentence_without_known_term_is_retranslated(tmp_path, custom_glossary, monkeypatch):
+    """캐시 번역에 내 용어도, 바꿀 수 있는 기본 용어도 없으면 캐시를 버리고 다시 번역한다."""
+    import bg3core.translate as t
+    t._translation_cache["Gain a Bonus Action."] = "보너스 액션을 얻습니다."
+    calls = []
+    monkeypatch.setattr(t, "call_gemini", lambda *a, **k: (calls.append(1), ("1|보조 행동을 얻습니다.", "ok"))[1])
+    content = '<content contentuid="h1" version="1">Gain a Bonus Action.</content>'
+    out = t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"))
+    assert calls, "API가 호출되어야 한다"
+    assert "보조 행동을 얻습니다." in out
+
+
+def test_enforce_custom_glossary_unit():
+    from bg3core.glossary import enforce_custom_glossary
+    custom = {"Bonus Action": "보조 행동"}
+    # 기본 용어집 매핑(추가 행동)을 내 용어로 치환
+    assert enforce_custom_glossary("Use a Bonus Action.", "추가 행동을 사용.", custom) == ("보조 행동을 사용.", True)
+    # 이미 내 용어가 있으면 그대로
+    assert enforce_custom_glossary("Use a Bonus Action.", "보조 행동을 사용.", custom) == ("보조 행동을 사용.", True)
+    # 원문에 용어가 없으면 손대지 않음(불필요한 치환 방지)
+    assert enforce_custom_glossary("Use an Action.", "추가 행동을 사용.", custom) == ("추가 행동을 사용.", True)
+    # 원문에는 있는데 번역에 아는 표기가 하나도 없으면 미충족
+    assert enforce_custom_glossary("Use a Bonus Action.", "보너스 액션을 사용.", custom) == ("보너스 액션을 사용.", False)
+    # 공식 사전 표기도 치환 대상
+    assert enforce_custom_glossary("Use a Bonus Action.", "추가행동을 사용.", custom, official={"Bonus Action": "추가행동"}) == ("보조 행동을 사용.", True)
+    # 대소문자 무시 매칭
+    assert enforce_custom_glossary("use a bonus action.", "추가 행동을 사용.", custom) == ("보조 행동을 사용.", True)
+
+
+# ── 기본 용어집 Bonus Action = 공식 한국어 팩 표기(보조 행동) ─────────
+def test_builtin_bonus_action_matches_official_korean():
+    from bg3core.glossary import GLOSSARY
+    assert GLOSSARY["Bonus Action"] == "보조 행동"
+    assert GLOSSARY["Bonus Actions"] == "보조 행동"
+
+
+def test_old_cached_bonus_action_is_corrected_without_custom_glossary(tmp_path, monkeypatch):
+    """내 용어집이 비어 있어도, 예전 버전이 캐시에 남긴 '추가 행동'은 새 표기로 교정된다."""
+    import bg3core.glossary as g
+    import bg3core.translate as t
+    monkeypatch.setattr(g, "_custom_glossary_cache", {})
+    monkeypatch.setattr(g, "_effective_glossary_cache", None)
+    monkeypatch.setattr(t, "_translation_cache", {"Gain a Bonus Action.": "추가 행동을 얻습니다."})
+    content = '<content contentuid="h1" version="1">Gain a Bonus Action.</content>'
+    out = t.process_xml_file(content, "t.xml", "", str(tmp_path / "log.txt"))
+    assert "보조 행동을 얻습니다." in out

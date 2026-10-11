@@ -1,7 +1,10 @@
-# Windows에서 테스트·빌드한 뒤 GitHub 릴리스를 "초안"으로 만든다.
+# Windows에서 테스트·빌드·실행 시험을 한 뒤 GitHub 릴리스를 "초안"으로 만든다.
 # 실행: Actions 탭 → Build & draft release → Run workflow
 # 버전은 bg3core/constants.py 의 __version__, 본문은 release_notes/v<버전>.md 를 쓴다.
 # 초안의 zip을 받아 실제 API 키로 시험한 뒤 GitHub 웹에서 Publish 한다.
+#
+# Python·PySide6 버전은 정상 동작이 확인된 v7.2 빌드(Python 3.14, PySide6 6.11.1)에 맞춰 고정한다.
+# 최신 PySide6를 그냥 받으면 Nuitka 빌드 결과가 실행되지 않을 수 있다(v7.3 첫 빌드: 6.12.0).
 name: Build & draft release
 
 on:
@@ -11,6 +14,25 @@ on:
         description: "릴리스 제목 (비우면 v<버전>)"
         required: false
         default: ""
+      python_version:
+        description: "Python 버전"
+        required: false
+        default: "3.14"
+      pyside6_version:
+        description: "PySide6 버전"
+        required: false
+        default: "6.11.1"
+      console_mode:
+        description: "exe 콘솔 모드 (진단: force)"
+        required: false
+        default: "disable"
+        type: choice
+        options: [disable, force]
+      create_release:
+        description: "릴리스 초안 생성"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -23,12 +45,13 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ inputs.python_version }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-gui.txt nuitka pytest
+          pip install -r requirements-gui.txt "PySide6==${{ inputs.pyside6_version }}" nuitka pytest
+          pip list
 
       - name: Read version
         id: ver
@@ -45,9 +68,27 @@ jobs:
 
       - name: Build zip
         shell: pwsh
-        run: ./build_all.ps1
+        run: ./build_all.ps1 -ConsoleMode ${{ inputs.console_mode }}
+
+      # 빌드한 exe를 실제로 띄워 20초 동안 살아 있는지 본다. 바로 죽으면 실패.
+      - name: Smoke test exe
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $exe = "nuitka_build\BG3_ModTranslator\BG3_ModTranslator.exe"
+          $p = Start-Process -FilePath $exe -PassThru `
+            -RedirectStandardOutput smoke_out.txt -RedirectStandardError smoke_err.txt
+          Start-Sleep -Seconds 20
+          $alive = -not $p.HasExited
+          Write-Host "--- stdout ---"; Get-Content smoke_out.txt -ErrorAction SilentlyContinue
+          Write-Host "--- stderr ---"; Get-Content smoke_err.txt -ErrorAction SilentlyContinue
+          if (-not $alive) { throw "exe가 시작 직후 종료됨 (exit code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "exe가 20초 동안 정상 실행됨"
 
       - name: Create draft release
+        if: ${{ inputs.create_release }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,6 +109,7 @@ jobs:
             --title "$title" --notes-file "release_notes/$tag.md"
 
       - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
         with:
-          name: BG3_ModTranslator_v${{ steps.ver.outputs.version }}
+          name: BG3_ModTranslator_v${{ steps.ver.outputs.version }}-py${{ inputs.python_version }}-pyside${{ inputs.pyside6_version }}-${{ inputs.console_mode }}
           path: BG3_ModTranslator_v${{ steps.ver.outputs.version }}.zip

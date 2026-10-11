@@ -1,0 +1,28 @@
+# 릴리스 초안을 공개하고 최신 릴리스(latest)로 지정한다.
+# 실행: Actions 탭 → Publish draft release → Run workflow (태그 입력, 예: v7.3)
+name: Publish draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "공개할 릴리스 태그 (예: v7.3)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          draft=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$draft" != "true" ]; then echo "$TAG 은 초안이 아니다 (이미 공개됨)"; exit 1; fi
+          gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json tagName,isDraft,url,publishedAt

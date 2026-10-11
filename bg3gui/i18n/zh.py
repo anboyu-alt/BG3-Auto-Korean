@@ -59,7 +59,7 @@ STRINGS = {
     "desc.translate.heading": "翻译指南",
     "desc.translate.file": "使用“浏览”选择要翻译的 .pak 文件。使用 📁 按钮选择一个文件夹并一次性翻译其中所有 .pak 文件。",
     "desc.translate.lang": "将模组翻译成的目标语言。源语言会自动检测，因此任何语言都会翻译成此语言。",
-    "desc.translate.model": "用于翻译的 Gemini 模型。首先尝试您选择的模型，失败时自动回退到其他模型。所有模型都支持大上下文，并且应用程序将文本拆分为约 4000 个 token 的块，因此无需担心 token 限制。\n\n• gemini-3.1-flash-lite — 最新轻量级。快速且便宜；推荐用于大多数模组（默认）。\n• gemini-2.5-flash-lite — 快速、便宜的备用模型。适用于大型模组。\n• gemini-2.5-flash — 速度和质量平衡。当 lite 不够用时。\n• gemini-2.5-pro — 最高质量，但最慢且 API 使用/成本最高。适用于需要精确翻译的重要模组。\n\n提示：如果您关注免费配额，请选择 lite 模型；如果质量最重要，请选择 pro 模型。",
+    "desc.translate.model": "用于翻译的 Gemini 模型。首先尝试您选择的模型，失败时自动回退到其他模型。所有模型都支持大上下文，并且应用程序将文本拆分为约 4000 个 token 的块，因此无需担心 token 限制。\n\n• gemini-3.5-flash-lite — 最新轻量级。快速且便宜；推荐用于大多数模组（默认）。\n• gemini-3.1-flash-lite — 快速、便宜的备用模型。适用于大型模组。\n• gemini-3.8-flash — 速度和质量平衡。当 lite 不够用时。\n• gemini-3.1-pro-preview — 最高质量，但最慢且 API 使用/成本最高。适用于需要精确翻译的重要模组。\n\n提示：如果您关注免费配额，请选择 lite 模型；如果质量最重要，请选择 pro 模型。",
     "desc.translate.controls": "按 ▶ 开始，⏸ 暂停，或 ⏹ 完全停止。进度和日志会在下方实时显示。",
     "desc.review.heading": "审阅指南",
     "desc.review.open": "使用“浏览”选择一个已翻译的 _<language>.pak 文件，然后用“打开”加载它。",

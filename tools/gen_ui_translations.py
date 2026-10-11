@@ -35,7 +35,7 @@ TARGETS = {
     "uk": "Ukrainian", "ja": "Japanese",
 }
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.8-flash"
 BASE = "https://generativelanguage.googleapis.com"
 
 DO_NOT_TRANSLATE = (

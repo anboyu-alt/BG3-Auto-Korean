@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-from .constants import MODELS_TO_TRY
+from .constants import MODELS_TO_TRY, RETIRED_MODEL_PREFIXES
 
 
 @dataclass
@@ -53,6 +53,10 @@ def load_config() -> UserConfig:
             for k, v in data.items():
                 if hasattr(cfg, k):
                     setattr(cfg, k, v)
+            cfg.model_preference = [
+                m for m in (cfg.model_preference or [])
+                if isinstance(m, str) and not m.startswith(RETIRED_MODEL_PREFIXES)
+            ] or list(MODELS_TO_TRY)
             return cfg
         except Exception:
             pass

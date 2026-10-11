@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 
 from bg3core.config import UserConfig, save_config
 from bg3core.language import LANGUAGE_PROFILES
-from bg3core.constants import MODELS_TO_TRY
+from bg3core.constants import EXTRA_MODEL_OPTIONS, MODELS_TO_TRY
 from . import theme
 from .i18n import t
 from .workers import TranslationWorker
@@ -28,7 +28,7 @@ _DISPLAY_TO_FOLDER = {p.display_name: p.folder_name for p in _LANG_OPTIONS}
 
 # 모델 선택 목록(기본 + 자주 쓰는 모델). 중복 제거, 순서 유지.
 _MODEL_OPTIONS = list(dict.fromkeys(
-    list(MODELS_TO_TRY) + ["gemini-2.5-flash", "gemini-2.5-pro"]
+    list(MODELS_TO_TRY) + list(EXTRA_MODEL_OPTIONS)
 ))
 
 

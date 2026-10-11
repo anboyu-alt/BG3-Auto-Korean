@@ -293,6 +293,18 @@ def extract_block_parts(block: str) -> Tuple[str, str, str]:
     return block, "", ""
 
 
+def _thinking_config(model_name: str) -> dict:
+    """모델 세대에 맞는 thinkingConfig를 돌려준다.
+
+    Gemini 3 이후는 thinkingLevel을 쓰고, 일부 모델(3.5-flash-lite 등)은
+    thinkingBudget: 0을 거부한다. 번역에는 깊은 추론이 필요 없으므로 "low".
+    2.x 이하는 기존처럼 thinkingBudget 0으로 추론을 끈다.
+    """
+    if model_name.startswith(("gemini-2.", "gemini-1.")):
+        return {"thinkingBudget": 0}
+    return {"thinkingLevel": "low"}
+
+
 def call_gemini(lines_text: str, filename: str,
                 chunk_index: int, total_chunks: int,
                 api_key: str,
@@ -307,14 +319,14 @@ def call_gemini(lines_text: str, filename: str,
         "contents": [{"parts": [{"text": user_text}]}],
         "generationConfig": {
             "temperature": 0.1,
-            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
     last_status = "unknown"
 
     for model_name in (_ACTIVE_MODELS or MODELS_TO_TRY):
+        payload["generationConfig"]["thinkingConfig"] = _thinking_config(model_name)
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         url = f"{BASE_URL}/v1beta/models/{model_name}:generateContent"
         for attempt in range(1, 4):
             try:

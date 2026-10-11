@@ -20,7 +20,10 @@
 
 param(
     [ValidateSet("all", "installer", "zip", "exe")]
-    [string]$Only = "all"
+    [string]$Only = "all",
+    # 진단용: "force"면 콘솔 창을 띄워 시작 오류(traceback)를 볼 수 있다. 배포물은 "disable".
+    [ValidateSet("disable", "force", "attach")]
+    [string]$ConsoleMode = "disable"
 )
 
 $ErrorActionPreference = "Stop"
@@ -68,7 +71,7 @@ python -m nuitka `
     --standalone `
     --assume-yes-for-downloads `
     --enable-plugin=pyside6 `
-    --windows-console-mode=disable `
+    --windows-console-mode=$ConsoleMode `
     --include-package=bg3gui `
     --include-package=bg3core `
     --include-package=bg3gui.i18n `

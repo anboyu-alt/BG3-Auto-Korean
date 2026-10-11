@@ -1,0 +1,34 @@
+# 이미 올라간 릴리스 zip을 Windows에서 띄워 20초 동안 살아 있는지 확인한다(진단용 대조군).
+name: Smoke test release zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "릴리스 태그 (예: v7.2)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Download and smoke test
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          gh release download "${{ inputs.tag }}" -R "${{ github.repository }}" -p "*.zip" -D dl
+          Expand-Archive (Get-ChildItem dl\*.zip)[0].FullName -DestinationPath x
+          $exe = (Get-ChildItem x -Recurse -Filter BG3_ModTranslator.exe)[0].FullName
+          $p = Start-Process -FilePath $exe -PassThru `
+            -RedirectStandardOutput out.txt -RedirectStandardError err.txt
+          Start-Sleep -Seconds 20
+          $alive = -not $p.HasExited
+          Get-Content out.txt, err.txt -ErrorAction SilentlyContinue
+          if (-not $alive) { throw "exe가 시작 직후 종료됨 (exit code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "exe가 20초 동안 정상 실행됨"

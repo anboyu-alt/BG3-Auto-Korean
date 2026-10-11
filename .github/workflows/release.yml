@@ -4,7 +4,8 @@
 # 초안의 zip을 받아 실제 API 키로 시험한 뒤 GitHub 웹에서 Publish 한다.
 #
 # Python·PySide6 버전은 정상 동작이 확인된 v7.2 빌드(Python 3.14, PySide6 6.11.1)에 맞춰 고정한다.
-# 최신 PySide6를 그냥 받으면 Nuitka 빌드 결과가 실행되지 않을 수 있다(v7.3 첫 빌드: 6.12.0).
+# 최신 버전을 그냥 받으면 빌드 결과가 실행되지 않을 수 있다
+# (v7.3 첫 빌드: Python 3.12 + PySide6 6.12.0 + Nuitka 4.3 → 시작 직후 segfault).
 name: Build & draft release
 
 on:
@@ -22,6 +23,10 @@ on:
         description: "PySide6 버전"
         required: false
         default: "6.11.1"
+      nuitka_version:
+        description: "Nuitka 버전"
+        required: false
+        default: "4.2.2"
       console_mode:
         description: "exe 콘솔 모드 (진단: force)"
         required: false
@@ -50,7 +55,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-gui.txt "PySide6==${{ inputs.pyside6_version }}" nuitka pytest
+          pip install -r requirements-gui.txt "PySide6==${{ inputs.pyside6_version }}" "nuitka==${{ inputs.nuitka_version }}" pytest
           pip list
 
       - name: Read version
@@ -111,5 +116,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: BG3_ModTranslator_v${{ steps.ver.outputs.version }}-py${{ inputs.python_version }}-pyside${{ inputs.pyside6_version }}-${{ inputs.console_mode }}
+          name: BG3_ModTranslator_v${{ steps.ver.outputs.version }}-py${{ inputs.python_version }}-pyside${{ inputs.pyside6_version }}-nuitka${{ inputs.nuitka_version }}-${{ inputs.console_mode }}
           path: BG3_ModTranslator_v${{ steps.ver.outputs.version }}.zip

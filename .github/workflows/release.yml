@@ -33,6 +33,10 @@ on:
         default: "disable"
         type: choice
         options: [disable, force]
+      control_tag:
+        description: "(진단) 이 태그의 기존 릴리스 zip도 같은 방식으로 실행 시험 (예: v7.2)"
+        required: false
+        default: ""
       create_release:
         description: "릴리스 초안 생성"
         required: false
@@ -47,6 +51,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 진단용 대조군: 이미 배포된 zip이 이 러너에서 실행 시험을 통과하는지 본다.
+      - name: Smoke test existing release (control)
+        if: ${{ inputs.control_tag != '' }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          gh release download "${{ inputs.control_tag }}" -R "${{ github.repository }}" -p "*.zip" -D control_dl
+          Expand-Archive (Get-ChildItem control_dl\*.zip)[0].FullName -DestinationPath control_x
+          $exe = (Get-ChildItem control_x -Recurse -Filter BG3_ModTranslator.exe)[0].FullName
+          $p = Start-Process -FilePath $exe -PassThru `
+            -RedirectStandardOutput control_out.txt -RedirectStandardError control_err.txt
+          Start-Sleep -Seconds 20
+          $alive = -not $p.HasExited
+          Get-Content control_out.txt, control_err.txt -ErrorAction SilentlyContinue
+          if (-not $alive) { throw "대조군 exe가 시작 직후 종료됨 (exit code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "대조군 exe가 20초 동안 정상 실행됨"
 
       - uses: actions/setup-python@v5
         with:

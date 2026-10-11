@@ -306,7 +306,7 @@ Install this `_<language>.pak` file using your BG3 mod manager.
 
 - This is the per-minute request limit for the Gemini free plan
 - The script automatically waits and retries, so just wait
-- If it happens repeatedly, try changing the AI model in the Settings tab
+- If it happens repeatedly, pick a different AI model from the model list in the **Translate tab** (each model has its own limit)
 
 ### Translation finished but the `_<language>.pak` file is missing
 

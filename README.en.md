@@ -1,9 +1,13 @@
 [한국어](README.md) | **English**
 
-# BG3 Mod Translator v7.2
+# BG3 Mod Translator v7.3
 
 A tool that automatically translates text in Baldur's Gate 3 mods using Google Gemini AI.
 Translate a mod **from any language into any of 15 target languages including Korean**, right out of the box as a **portable build — just extract and run, no installation required.**
+
+> ### 🆕 v7.3 — AI models updated to the current Gemini generation
+> - 🤖 **Default model gemini-3.5-flash-lite** (fallback gemini-3.1-flash-lite) — 2.5 models removed, as they are no longer available to new API keys
+> - ⚙️ **Optional models gemini-3.8-flash · gemini-3.1-pro-preview** — if you had picked a 2.5 model, you are switched to the new default automatically
 
 > ### 🆕 v7.2 — custom glossary reliably applied inside sentences
 > - 📖 **Custom glossary enforced on the final translation** — cached sentences and AI output are corrected to your terms; edits auto-save
@@ -52,9 +56,9 @@ This tool unpacks the original mod (`.pak`), adds translations, and **repacks th
 
 > **A portable build you can use immediately without installing Python.**
 
-### 👉 [Download BG3_ModTranslator_v7.2.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
+### 👉 [Download BG3_ModTranslator_v7.3.zip](https://github.com/anboyu-alt/BG3-Auto-Korean/releases/latest)
 
-Download `BG3_ModTranslator_v7.2.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
+Download `BG3_ModTranslator_v7.3.zip` from the latest release, **extract all files**, then run `BG3_ModTranslator.exe` inside the extracted folder.
 
 > 🛡️ This is a free, open-source, unsigned tool, so antivirus warnings used to appear — the folder (ZIP) build means no antivirus false positives.
 
@@ -95,7 +99,7 @@ Required for Google AI to perform translations. Obtaining a key is free.
 ## Download
 
 1. Go to the **[Releases](../../releases)** page of this repository
-2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.2.zip` to download
+2. Under **Assets** of the latest release, click `BG3_ModTranslator_v7.3.zip` to download
 3. **Extract all files** from the `.zip`, then run `BG3_ModTranslator.exe` inside the extracted folder (the folder can be in any location)
 
 > **If a Windows security warning appears:** Click "More info" → "Run anyway".
@@ -416,6 +420,12 @@ However, items that could break game functionality if auto-translated — such a
 ---
 
 ## Update History
+
+### v7.3
+- **AI models updated to the current Gemini generation**: the default model is now `gemini-3.5-flash-lite`, with `gemini-3.1-flash-lite` as fallback. Google no longer offers the 2.5 models to new API keys, so users with a newly issued key could see the fallback and optional models fail.
+- **Optional models replaced**: `gemini-2.5-flash` and `gemini-2.5-pro` in the Translate tab's model list are replaced by `gemini-3.8-flash` (balanced speed and quality) and `gemini-3.1-pro-preview` (highest quality).
+- **Old settings cleaned up automatically**: if you had picked a 2.5 model in an earlier version, the app switches you to the new default on launch.
+- **Gemini 3 request format**: the app now sends the reasoning setting (`thinkingLevel`) that Gemini 3 models expect.
 
 ### v7.2
 - **Custom glossary now applies inside sentences**: v7.1 only prioritized your glossary when the whole string matched a term, so terms inside sentences still came from old cached translations or from whatever the AI wrote. The final translation is now checked: if the source contains one of your terms, your wording must appear. Built-in or official wording is replaced in place, and only cached entries that can't be fixed are re-translated.

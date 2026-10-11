@@ -3,6 +3,11 @@ This tool repackages the entire original mod, so the translated .pak it produces
 
 ⚠ This is a one-time-setup tool, NOT a drag-and-drop mod. Downloading the file alone is not enough — you MUST follow the full setup guide on GitHub (link below) before using it.
 
+🆕 What's new in v7.3
+- AI models updated to Google's current Gemini generation. The default is now gemini-3.5-flash-lite, with gemini-3.1-flash-lite as fallback. The older 2.5 models were removed because Google no longer offers them to new API keys, which could make translation fail for new users.
+- The model menu now offers gemini-3.8-flash (balanced) and gemini-3.1-pro-preview (highest quality) in place of the 2.5 Flash/Pro models.
+- If you had picked a 2.5 model before, the app switches you to the new default automatically.
+
 🆕 What's new in v7.2
 - Your custom glossary is now reliably applied inside sentences, too. v7.1 only put it first when the whole text was exactly the term, so terms inside sentences could still come from old cached translations or from the AI's own wording. The final translation is now checked, and your term is enforced.
 - Custom glossary edits are saved automatically as you type — no more terms left unapplied because Save wasn't clicked.
@@ -88,6 +93,11 @@ Thanks also to Norbyte for LSLib — its .pak/.loca format made the native imple
 이 도구는 원본 모드 전체를 다시 패키징하므로, 생성된 번역된 .pak 파일에는 원작자의 에셋과 스크립트가 모두 포함되어 있습니다. 원작자의 명시적 허가 없이 번역된 파일을 업로드·재배포하지 마십시오. 이는 원작자의 권리와 Nexus 규칙 위반이며 계정 정지 등 불이익을 받을 수 있습니다. 번역된 파일은 개인 용도로만 사용하거나, 공유 전 반드시 원작자의 허가를 받으십시오.
 
 ⚠ 이 도구는 1회 설정이 필요한 도구이며, 드래그 앤 드롭 방식의 모드가 아닙니다. 파일 다운로드만으로는 작동하지 않으며, 사용 전 GitHub(하단 링크)의 전체 설정 가이드를 반드시 따라야 합니다.
+
+🆕 v7.3의 새로운 점
+- AI 모델을 구글 Gemini 최신 세대로 교체했습니다. 기본 모델은 gemini-3.5-flash-lite, 폴백은 gemini-3.1-flash-lite입니다. 구글이 2.5 세대 모델을 신규 API 키에 더 이상 제공하지 않아, 새로 키를 받은 사용자는 번역이 실패할 수 있었습니다.
+- 모델 목록의 2.5 Flash·Pro를 gemini-3.8-flash(속도·품질 균형)와 gemini-3.1-pro-preview(최고 품질)로 바꿨습니다.
+- 예전에 2.5 모델을 골라 두었다면 실행할 때 새 기본 모델로 자동 전환됩니다.
 
 🆕 v7.2의 새로운 점
 - 내 용어집이 문장 속에서도 확실히 적용됩니다. v7.1은 문자열 전체가 용어와 같을 때만 내 용어집을 먼저 적용해, 문장 안의 용어는 예전 번역 캐시나 AI가 쓴 표기가 그대로 나올 수 있었습니다. 이제 최종 번역을 검사해 내 표기를 강제합니다.

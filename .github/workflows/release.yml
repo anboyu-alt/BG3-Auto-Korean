@@ -1,0 +1,73 @@
+# Windows에서 테스트·빌드한 뒤 GitHub 릴리스를 "초안"으로 만든다.
+# 실행: Actions 탭 → Build & draft release → Run workflow
+# 버전은 bg3core/constants.py 의 __version__, 본문은 release_notes/v<버전>.md 를 쓴다.
+# 초안의 zip을 받아 실제 API 키로 시험한 뒤 GitHub 웹에서 Publish 한다.
+name: Build & draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "릴리스 제목 (비우면 v<버전>)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-gui.txt nuitka pytest
+
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (python -c "import bg3core.constants as c; print(c.__version__)").Trim()
+          if (-not (Test-Path "release_notes/v$v.md")) { throw "release_notes/v$v.md 가 없습니다." }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: Build zip
+        shell: pwsh
+        run: ./build_all.ps1
+
+      - name: Create draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          $tag = "v$env:VERSION"
+          $zip = "BG3_ModTranslator_$tag.zip"
+          if (-not (Test-Path $zip)) { throw "산출물이 없습니다: $zip" }
+          $title = if ($env:TITLE) { $env:TITLE } else { $tag }
+          # 같은 태그의 이전 초안이 있으면 지우고 다시 만든다(공개된 릴리스는 건드리지 않음).
+          $existing = gh release view $tag --json isDraft 2>$null | ConvertFrom-Json
+          if ($existing) {
+            if (-not $existing.isDraft) { throw "$tag 릴리스가 이미 공개돼 있습니다." }
+            gh release delete $tag --yes
+          }
+          gh release create $tag $zip --draft --target $env:GITHUB_SHA `
+            --title "$title" --notes-file "release_notes/$tag.md"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BG3_ModTranslator_v${{ steps.ver.outputs.version }}
+          path: BG3_ModTranslator_v${{ steps.ver.outputs.version }}.zip

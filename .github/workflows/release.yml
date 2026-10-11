@@ -138,8 +138,10 @@ jobs:
           gh release create $tag $zip --draft --target $env:GITHUB_SHA `
             --title "$title" --notes-file "release_notes/$tag.md"
 
+      # 빌드 확인용 사본. GitHub는 아티팩트를 zip으로 감싸 내려주므로 zip이 아닌 폴더를 올린다
+      # (zip을 올리면 이중 압축이 된다). 배포용 파일은 릴리스 초안에 첨부된 zip이다.
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: BG3_ModTranslator_v${{ steps.ver.outputs.version }}-py${{ inputs.python_version }}-pyside${{ inputs.pyside6_version }}-nuitka${{ inputs.nuitka_version }}-${{ inputs.console_mode }}
-          path: BG3_ModTranslator_v${{ steps.ver.outputs.version }}.zip
+          name: build-check_v${{ steps.ver.outputs.version }}-py${{ inputs.python_version }}-pyside${{ inputs.pyside6_version }}-nuitka${{ inputs.nuitka_version }}-${{ inputs.console_mode }}
+          path: nuitka_build/BG3_ModTranslator/
